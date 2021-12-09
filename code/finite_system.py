@@ -2,6 +2,7 @@ import kwant
 import kwant.continuum
 import numpy as np
 
+
 def finite_system(**geometry):
     """
     Create a kwant builder that describes three wires connected by a cavity as defined in geometry.
@@ -17,6 +18,45 @@ def finite_system(**geometry):
         f_params: function
     """
 
+    A = geometry['A']
+    a = geometry['a']
+
+    side = geometry['side']
+    shape = geometry['shape']
+
+    l = geometry['l']
+    w = geometry['w']
+
+    if shape == 'circle':
+        R = 50*a  # outer radius
+        L = R  # relabel L
+        r = np.sqrt(np.abs(A/np.pi - R**2))
+        connection = 0
+        center = R - (R-r)/2
+        start = [R-a, 0]
+
+    elif shape == 'triangle':
+        angle = geometry['angle']
+        L = np.sqrt(A*np.tan(angle))
+
+        if side == 'up':
+            connection = np.tan(angle)*(w/2)
+        elif side == 'down':
+            connection = 0
+
+        center = np.abs((L/np.tan(angle))/2)  # center of the wires in the lower region
+
+        start = [0,0]
+
+    elif shape == 'rectangle':
+        L = np.sqrt(A)/2
+        W = 2*L
+        center = W/4
+        connection = 0
+        start = [0, 0]
+    #W = np.sqrt(A/np.tan(angle))
+
+
     hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
     + alpha * k_x * kron(sigma_y, sigma_z)
     - alpha * k_y * kron(sigma_x, sigma_z)
@@ -27,50 +67,53 @@ def finite_system(**geometry):
 
     def wires(mu=np.ones(3) > 0, **geometry):
 
-        L = geometry['L']
-        W = geometry['W']
-
-        l = geometry['l']
-        w = geometry['w']
-
         def wires_shape(x, y):
-            center = W/4  # center of the wires in the lower region
+
             for i in range(2):
                 if -w/2 - center*(-1)**i < x < w/2 - center*(-1)**i:
-                    if -l <= y < 0:
+                    if -l <= y <= 0:
                         return mu[i]
             i+=1
-            if L <= y < L+l:
-                if -w/2 <= x < w/2:
-                    return mu[i]
+            # last wire can be at top or bot side
+            if side == 'up':
+                if L-connection <= y < L+l-connection:
+                    if -w/2 <= x < w/2:
+                        return mu[i]
+
+            elif side == 'down':
+                if -l <= y < 0:
+                    if -w/2 <= x < w/2:
+                        return mu[i]
 
         return wires_shape
 
-    def scatter(mu=True, **geometry):
+    def triangle(mu=True, **geometry):
+        # triangle shape
+        def triangle_shape(x, y):
+            if np.tan(angle)*x <= -(y-L) and np.tan(angle)*x >= (y-L):
+                return mu
 
-        L = geometry['L'] + 3*geometry['a']  # offset added to connect top wire smoothly
-        W = geometry['W']
-        angle = geometry['angle']
+        return triangle_shape
 
-        def scatter_shape(x, y):
+    def circle(mu=True, **geometry):
+        # circle shape
+        def circle_shape(x, y):
+            if x**2 + y**2 <= R**2 and x**2 + y**2 >= r**2:
+                return mu
+        return circle_shape
+
+    def rectangle(mu=True, **geometry):
+        def rectangle_shape(x, y):
             if -W/2 <= x <= W/2:
-                if angle <= np.pi/4:
-                    if np.tan(angle)*x <= -(y-L) and np.tan(angle)*x >= (y-L):
-                        return mu
-                elif angle > np.pi/4:
-                    if np.tan(angle)*(x-W/2) <= -y and np.tan(angle)*(x+W/2) >= y:
-                        return mu
-
-        return scatter_shape
+                return mu
+        return rectangle_shape
 
     def builder_shape(**geometry):
         """Return a function used to create builder as TJ shape."""
 
-        L = geometry['L']
-
         def system(site):
             x, y = site. pos
-            if 0 <= y < L:
+            if 0 <= y < L-connection:
                 f = scatter(**geometry)
             else:
                 f = wires(**geometry)
@@ -79,12 +122,18 @@ def finite_system(**geometry):
 
         return system
 
+    def scatter(mu=True, **geometry):
+        if shape == 'circle':
+            return circle(mu, **geometry)
+        elif shape == 'triangle':
+            return triangle(mu, **geometry)
+        elif shape == 'rectangle':
+            return rectangle(mu, **geometry)
+
     def fill_system(mu_qd, mus_nw):
 
-        L = geometry['L']
-
         def system(x, y):
-            if 0 <= y < L:
+            if 0 <= y < L-connection:
                 f = scatter(**geometry, mu=mu_qd)
             else:
                 f = wires(**geometry, mu=mus_nw)
@@ -117,7 +166,7 @@ def finite_system(**geometry):
         junction.fill(
             template,
             shape=builder_shape(**geometry),
-            start=[0, 0]
+            start=start
         )
         return junction
 
