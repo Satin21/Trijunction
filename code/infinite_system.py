@@ -3,7 +3,7 @@ import kwant
 import kwant.continuum
 
 
-def infinite_system(**geometry):
+def infinite_system(flag_leads, **geometry):
     """
     Create a kwant builder that describes a scattering region connected to three topological leads.
     The builder is filled with a discretized continuum hamiltonian.
@@ -102,8 +102,11 @@ def infinite_system(**geometry):
 
     cavity = make_scattering_region(**geometry)
     leads = make_leads(**geometry)
-    for lead in leads:
-        cavity.attach_lead(lead);
+    i = 0
+    for lead in flag_leads:
+        if lead:
+            cavity.attach_lead(leads[i]);
+        i += 1
     cavity = cavity.finalized()
 
     return cavity, f_params
