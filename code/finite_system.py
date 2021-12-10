@@ -170,6 +170,6 @@ def finite_system(**geometry):
         )
         return junction
 
-    trijunction = make_junction(**geometry).finalized()
+    trijunction = make_junction(**geometry)
 
     return trijunction, f_params

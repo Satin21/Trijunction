@@ -1,9 +1,70 @@
+import tools as tl
 import numpy as np
 import kwant
 import kwant.continuum
+from finite_system import finite_system
 
+def lead_hamiltonian(mu_wire): 
+    h = """
+    ( t * (k_x**2 + k_y**2) - """+mu_wire+""" )* kron(sigma_0, sigma_z)
+    + alpha * k_x * kron(sigma_y, sigma_z)
+    - alpha * k_y * kron(sigma_x, sigma_z)
+    + Delta_re * kron(sigma_0, sigma_x)
+    + Delta_im * kron(sigma_0, sigma_y)
+    + B_x * kron(sigma_y, sigma_0)
+    """
+    return h
 
 def infinite_system(flag_leads, **geometry):
+
+    a = geometry['a']
+    w = geometry['w']
+    angle = geometry['angle']
+    L = np.sqrt(A*np.tan(angle))
+    center = np.abs((L/np.tan(angle))/2)
+
+    trijunction, f_params = finite_system(**geometry)
+
+    def make_leads():
+
+        lead_top = kwant.Builder(symmetry=kwant.TranslationalSymmetry([0, a]))
+        lead_bot_left = kwant.Builder(symmetry=kwant.TranslationalSymmetry([0, -a]))
+        lead_bot_right = kwant.Builder(symmetry=kwant.TranslationalSymmetry([0, -a]))
+
+        template_lead_top = kwant.continuum.discretize(lead_hamiltonian('mu_nw_top'), grid=a)
+        template_lead_left = kwant.continuum.discretize(lead_hamiltonian('mu_nw_left'), grid=a)
+        template_lead_right = kwant.continuum.discretize(lead_hamiltonian('mu_nw_right'), grid=a)
+
+        lead_top.fill(template_lead_right,
+                      shape=lambda site: -w/2 <= site.pos[0] < w/2,
+                      start=[0]);
+        lead_bot_right.fill(template_lead_2,
+                            shape=lambda site: -w/2 + center <= site.pos[0]  < w/2+center,
+                            start=[center]);
+        lead_bot_left.fill(template_lead_1,
+                           shape=lambda site: -w/2 - center <= site.pos[0]  < w/2-center,
+                           start=[-center]);
+
+        return lead_bot_left, lead_bot_right, lead_top
+    
+    def f_params_infinite(params):
+        p = f_params(**params)
+        p.update(mu_nw_top=params['mu_nw'][3])
+        p.update(mu_nw_left=params['mu_nw'][1])
+        p.update(mu_nw_right=params['mu_nw'][2])
+        return p
+
+    leads = make_leads()
+    for flag in flag_leads:
+        if flag:
+            trijunction.attach_lead(leads[i]);
+        i += 1
+    trijunction = trijunction.finalized()
+    
+    return trijunction, f_params_infinite
+    
+
+def infinite_system_old(flag_leads, **geometry):
     """
     Create a kwant builder that describes a scattering region connected to three topological leads.
     The builder is filled with a discretized continuum hamiltonian.
@@ -18,7 +79,7 @@ def infinite_system(flag_leads, **geometry):
         f_params: function
     """
 
-    def lead_hamiltonian(mu_wire): 
+    def lead_hamiltonian(mu_wire):
         h = """
         ( t * (k_x**2 + k_y**2) - """+mu_wire+""" )* kron(sigma_0, sigma_z)
         + alpha * k_x * kron(sigma_y, sigma_z)
@@ -81,7 +142,7 @@ def infinite_system(flag_leads, **geometry):
         lead_top = kwant.Builder(symmetry=kwant.TranslationalSymmetry([0, a]))
         lead_bot_left = kwant.Builder(symmetry=kwant.TranslationalSymmetry([0, -a]))
         lead_bot_right = kwant.Builder(symmetry=kwant.TranslationalSymmetry([0, -a]))
-        
+
         template_lead_1 = kwant.continuum.discretize(lead_hamiltonian('mu_nw_1'), grid=a)
         template_lead_2 = kwant.continuum.discretize(lead_hamiltonian('mu_nw_2'), grid=a)
         template_lead_3 = kwant.continuum.discretize(lead_hamiltonian('mu_nw_3'), grid=a)
