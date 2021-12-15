@@ -2,16 +2,12 @@
 Trijunction design
 
 ## Research Goal
-Manipulating Majoranas in a qubit requires coupling 3 or more Majoranas from different topological wires together (maybe not all at the same time).
-Because Majorana wires require alignment with magnetic field, they have to also be parallel to each other.
-Also because of the layout constraints, they have to be spatially separated.
-The above factors combined, make the coupler design a nontrivial task.
-That is exactly what we propose to do: investigate which geometries produce a good switch.
-An extra advantage of this project is that it can be tested in the normal regime, bringing it within reach of ongoing experiments.
+Manipulating Majoranas in a qubit requires coupling 3 or more Majoranas from different topological wires together. We propose to investigate which geometries produce a good switch.
 
 ## Research Plan
 
-We are interested in designig a ballistic cavity with three Majorana nanowires attached. The problem of a cavity with leads attached has been studied previously.
+We are interested in modelling a ballistic cavity with three Majorana nanowires attached. 
+The problem of a cavity with leads attached has been studied previously.
 In these works, to measure the coupling between the leads, a conductance calculation has been performed and compared with classical conductance calculations.
 A high agreement between the quantum and semi-classical pictures has been found in terms of trajectories, i.e. motion of a wavepacket inside a cavity.
 It has been found that the shape of the cavity allows for the appearance of different kind of states that couple to the leads with a characteristic signature.
