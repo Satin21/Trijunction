@@ -7,11 +7,12 @@
 # http://kwant-project.org/authors.
 
 from packaging import version
-import time
+
 import numpy as np
 import scipy.linalg
 import scipy.optimize
 import scipy.sparse as sp
+import time
 
 __all__ = ["find_boundstates"]
 
@@ -58,7 +59,7 @@ else:
                                **kwargs)
 
 
-def find_boundstates(
+def modified_find_boundstates(
     syst,
     min_energy,
     max_energy,
@@ -135,37 +136,49 @@ def find_boundstates(
     energies = np.linspace(
         min_energy, max_energy, int((max_energy - min_energy) / rtol)
     )
-    intervals = zip(energies, energies[1:])
+    intervals = list(zip(energies, energies[1:]))
+    sorted_intervals = sorted(intervals, key=lambda element: np.abs(element[0]))
     candidates = []
     start_candidates = time.time()
-    for a, b in intervals:
+    start = time.time()
+    for a, b in sorted_intervals:
         start = time.time()  
         condition = np.sign(min_eigenvalue(a)) != np.sign(min_eigenvalue(b))
         end = time.time()
-        print('Time evaluate bound state condition: '+str(end-start))        
+        print('Time evaluate bound state condition: '+str(end-start))
         if condition:
             start = time.time()
             candidate = scipy.optimize.brentq(min_eigenvalue, a, b)
-            candidates.append(candidate)
             end = time.time()
             print('Time find bound state energy: '+str(end-start))
+            candidates.append(candidate)
+        if len(candidates) >= 2:
+            break
     end_candidates = time.time()
     print('Total time to find candidates: '+str(end_candidates-start_candidates))
     # Check which candidate points give actual boundstates.
+    i = 0
+    flag = True
     energies = []
     states = []
+    max_i = len(candidates)
     start = time.time()
-    for energy in candidates:
+    while flag:
+        energy = candidates[i]
         vecs = extract_boundstates(syst, energy, params=params, sparse=sparse)
+        if 0 not in vecs.shape:
+            flag = False
         # vecs.shape[1] == 0 if there were no boundstates found
         energies.append([energy] * vecs.shape[1])
         # Here we discard the mode part of the solution just to
         # make the output format more uniform (wavefunction has
         # same number of components at all energies).
         states.append(vecs[:tot_norbs, :])
+        i += 1
+        if i == max_i:
+            flag = False
     end = time.time()
-    print('Time to find all bound states: '+str(end-start))
-
+    print('Time to find lowest single bound state: '+str(end-start))
     if not energies:
         return np.empty((0,)), np.empty((tot_norbs, 0))
     else:
@@ -244,7 +257,6 @@ def extract_boundstates(
 
     if not np.any(zeros):
         return np.empty((lhs.shape[0], 0))
-
 
     zero_vecs = vecs[:, zeros]
     # To find the true boundstates we find the null space of the operator
@@ -341,9 +353,10 @@ def make_linsys(
     phi_e = []
     svd_vs = []
     transfs = []
-    for leadnum, interface in enumerate(syst.lead_interfaces):
+    for leadnum, interface in enumerate(syst.lead_interfaces):           
         lead = syst.leads[leadnum]
         _, stab = lead.modes(energy, params=params)
+
         svd_v = stab.sqrt_hop
         # Evanescent modes (schur vectors) are stored after
         # the 2*nmodes propagating (in/out) modes
