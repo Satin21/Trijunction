@@ -69,7 +69,7 @@ def gates_trijunction(area, angle, wire_width, gap, extra_width):
             [- triangle_width/2 - extra_width/2 - gap, total_length/2]
         ]
     )
-    extra = np.sqrt(gap**2 + np.cos(np.pi/2-angle)**2)-gap
+    extra = np.sqrt(1 + np.cos(np.pi/2-angle)**2)*gap-gap
     screening_gate_right = np.array(
         [
             [triangle_width/2, tunnel_length + gap + np.sqrt(gap**2 + np.cos(np.pi/2-angle)**2)],

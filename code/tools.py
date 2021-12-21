@@ -10,26 +10,20 @@ import matplotlib.animation as animation
 # data extracted from sub_bands.ipynb
 # Zeeman fields for the topological transition at each sub-band
 
-fields_majorana = [0.03784746067555219,
- 0.030638064642167586,
- 0.019848440993266485,
- 0.011161616161616166,
- 0.011616161616161616,
- 0.011363636363636364,
- 0.011363636363636364]
 
 # Bottom of each transverse band
-bands = [-0.03072624855434007,
- -0.023516852520955468,
- -0.012727228872054365,
- -7.637099097405093e-18,
- 0.012727228872054333,
- 0.023516852520955447,
- 0.030726248554340075]
+bands = [0.0023960204649275973,
+ 0.009605416498312178,
+ 0.020395040147213304,
+ 0.03312226901926766,
+ 0.045849497891322026,
+ 0.056639121540223145,
+ 0.06384851757360771]
+
+b = 0.0106
 
 def finite_coupling_parameters(index):
     mu = bands[index]
-    b = fields_majorana[index]
     params1 = junction_parameters(m_nw=np.array([mu, mu, -2]), m_qd=0, bx=b)
     params1.update(phi1=1.23232323*np.pi)
     params2 = junction_parameters(m_nw=np.array([mu, -2, mu]), m_qd=0, bx=b)
@@ -121,7 +115,7 @@ def sort_eigen(ev):
 def find_resonances(energies, n, i=1):
     levels = energies.T
     ground_state = levels[n//2 + i]
-    crossings, _ = find_peaks(-ground_state)
+    crossings, _ = find_peaks(ground_state)
     return crossings, ground_state
 
 
