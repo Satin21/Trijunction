@@ -146,7 +146,7 @@ def _linear_solution(discrete_system, linear_problem, voltages, charges):
 
 
 def gate_potential(
-    discrete_system, linear_problem, site_coords, site_indices, voltages, charges, offset
+    discrete_system, linear_problem, site_coords, site_indices, voltages, charges, offset, grid_spacing=1
 ):
     """Combined potential in the two dimensional system of all voltage and charge regions
 
@@ -189,6 +189,9 @@ def gate_potential(
     site_tuples = map(tuple, site_coords)
 
     for i, site_tuple in enumerate(site_tuples):
-        potential_dict[ta.array((site_tuple-offset).astype('int'))] = potential[i]
+        if grid_spacing == 1:
+            potential_dict[ta.array((site_tuple-offset))] = potential[i]
+        else:
+            potential_dict[ta.array((site_tuple-offset)*grid_spacing)] = potential[i]
 
     return potential_dict
