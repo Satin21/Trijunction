@@ -112,10 +112,10 @@ def sort_eigen(ev):
     return evals, evecs.T
 
 
-def find_resonances(energies, n, i=1):
+def find_resonances(energies, n, i=1, sign=-1):
     levels = energies.T
     ground_state = levels[n//2 + i]
-    crossings, _ = find_peaks(ground_state)
+    crossings, _ = find_peaks(sign*np.abs(ground_state))
     return crossings, ground_state
 
 
@@ -169,27 +169,7 @@ def spectra_data(data):
     return energies, wfs
 
 
-def plot_spectras(energies, mus):
-    """
-    Generate plot with the spectras of each trijunction connection.
-    """
-    fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(10, 15))
-    i=0
-
-    for energy in energies:
-        for level in energy.T:
-            axes[i].plot(mus, level)
-            axes[i].set_title(i)
-        i += 1
-    for ax in axes:
-        ax.set_xlabel(r'$\mu_{qd}$[eV]')
-        ax.set_ylabel(r"E[meV]")
-        ax.set_ylim(-0.0011, 0.0011)
-
-    fig.show()
-
-
-def coupling_data(data, n=20, i=1):
+def coupling_data(data, n=20, i=1, sign=-1):
     """
     Extract data associated to the first excited level, i.e. coupled majoranas,
     for each connection in the trijunction.
@@ -198,47 +178,13 @@ def coupling_data(data, n=20, i=1):
     en_13, wfs_13 = separate_energies_wfs(dat_13)
     en_12, wfs_12 = separate_energies_wfs(dat_12)
     en_23, wfs_23 = separate_energies_wfs(dat_23)
-    peaks_13, coupling_13 = find_resonances(en_13, n=n, i=i)
-    peaks_12, coupling_12 = find_resonances(en_12, n=n, i=i)
-    peaks_23, coupling_23 = find_resonances(en_23, n=n, i=i)
+    peaks_13, coupling_13 = find_resonances(en_13, n=n, i=i, sign=sign)
+    peaks_12, coupling_12 = find_resonances(en_12, n=n, i=i, sign=sign)
+    peaks_23, coupling_23 = find_resonances(en_23, n=n, i=i, sign=sign)
     couplings = [coupling_13, coupling_12, coupling_23]
     wfs = [wfs_13[:, n//2+1], wfs_12[:, n//2+1], wfs_23[:, n//2+1]]
     peaks = [peaks_13, peaks_12, peaks_23]
     return couplings, wfs, peaks
-
-
-def wfs_animation(junction, wfs, couplings, mus, ylims, xlims):
-
-    density = kwant.operator.Density(junction, np.eye(4))
-    labels = [r'$E_{12}$', r'$E_{13}$', r'$E_{23}$']
-
-    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(15, 4))
-    plt.close()
-
-    wf1 = kwant.plotter.density(junction, density(wfs[0][0]), ax=ax[0])
-    wf2 = kwant.plotter.density(junction, density(wfs[1][0]), ax=ax[1])
-
-    for i in range(0, 2):
-        ax[i].set_ylim(ylims[0], ylims[1])
-        ax[i].set_xlim(xlims[0], xlims[1])
-        ax[i].set_title(labels[i], fontsize=15)
-
-    def animate(i):
-        wf1 = kwant.plotter.density(junction, density(wfs[0][i]), ax=ax[0])
-        wf2 = kwant.plotter.density(junction, density(wfs[1][i]), ax=ax[1])
-
-        for j in range(2):
-            ax[j].set_ylim(ylims[0], ylims[1])
-            ax[j].set_xlim(xlims[0], xlims[1])
-            lab = labels[j]+'='+str(np.round(couplings[j][i]*1000, 3))+'meV '
-            lab += r'$\mu_{qd}$='+str(np.round(mus[i]*1000, 3))+'meV'
-            ax[j].set_title(lab, fontsize=15)
-
-        return wf1, wf2,
-
-    anim = animation.FuncAnimation(fig, animate, frames=len(wfs[0]), interval=150)
-
-    return anim
 
 
 def separate_data_geometries(data, n_geometries):
@@ -247,3 +193,27 @@ def separate_data_geometries(data, n_geometries):
     for i in range(n_geometries):
         separated_data.append(data[i*step:(i+1)*step])
     return separated_data
+
+
+def average_energy_levels(mus, result, normalized=True):
+    geometry_data = []
+    ens, _, peaks = coupling_data(result, n=6)
+
+    for k in range(3):
+        single_average = []
+        single_mus = []
+        single_widths = []
+        single_peaks = np.hstack([0, peaks[k], -1])
+        indices_intervals = zip(single_peaks, single_peaks[1:])
+
+        for i, j in indices_intervals:
+            energy_section = np.abs(ens[k])[i:j]
+            ediff = np.abs(mus[j]-mus[i])
+            average = np.sum(energy_section)/np.abs(ediff)
+            single_average.append(average)
+            single_mus.append(mus[i]+ediff/2)
+            single_widths.append(ediff)
+        minimal_spacing = min(single_widths)
+        geometry_data.append([single_mus, single_average, single_widths, minimal_spacing])
+
+    return np.array(geometry_data)
