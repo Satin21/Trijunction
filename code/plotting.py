@@ -2,78 +2,59 @@ import kwant
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-def plot_average_couplings(tjs, average_data, title, n_geometries, subtitles, xlims, ylims, ylim):
-    xmin, xmax = xlims
-    ymin, ymax = ylims
-    plt.close()
-    fig, ax = plt.subplots(ncols=4, nrows=n_geometries, figsize=(30, 7*n_geometries))
-    fig.suptitle(title, fontsize=22)
-    labels = [r'$E_{12}$', r'$E_{13}$', r'$E_{23}$']
-    colors = ['lightblue', 'orange', 'green']
-    g = 0
-    for i in range(n_geometries):
-        for j in range(4):
-            if j == 0:
-                kwant.plot(tjs[i][0], ax=ax[i][j])
-                ax[i][j].set_xlim(xmin, xmax)
-                ax[i][j].set_ylim(ymin, ymax)
-                ax[i][j].set_title(subtitles[i])
-            if j > 0:
-                w = j-1
-                mus = 1000*np.array(average_data[i][w][0])
-                bars = 100*np.array(average_data[i][w][1])
-                widths = 1000*np.array(average_data[i][w][2])
-                min_widht = np.round(1000*average_data[i][w][3], 3)
-                average_peak_width = np.round(np.mean(widths), 3)
-                average_peak_height = np.round(np.mean(bars), 3)
-                ax[i][j].bar(mus, bars, width=widths, label=labels[w], edgecolor='black', color=colors[w])
-                ax[i][j].set_ylim(0, ylim)
-                title_subplots = r'Av. height: '+str(average_peak_height)+'[$\mu$eV]\n Av. width: '+str(average_peak_width)+'[meV], \n Min. width = '+str(min_widht)+'[meV]'
-                ax[i][j].set_title(title_subplots)
-                ax[i][j].legend()
-            if j == 1:
-                ax[i][j].set_ylabel(r'$E[\mu$eV]')
-            if i == n_geometries-1 and j > 0:
-                ax[i][j].set_xlabel(r'$\mu_{qd}$[meV]')
-
-        g += 1
-    fig.tight_layout(pad=4, h_pad=3, w_pad=3)
-    plt.savefig('../data/average_'+title.replace(' ', '_')+'.svg')
+def plot_couplings(n_geometries, geometries, mus_qd_units, geometries_peaks, geometries_couplings, title, units):
+    fig, axes = plt.subplots(ncols=int(n_geometries/2), nrows=4, figsize=(18, 12))
+    fig.tight_layout(h_pad=4, w_pad=2)
+    geometry = 0
+    pair = 0
+    label = r'$E_{left-right}$'
+    color = 'blue'
+    for ax in axes.flatten():
+        if geometry == n_geometries:
+            geometry = 0
+            pair = 1
+            label = r'$E_{left-center}$'
+            color = 'green'
+        ax_title = title+str(np.round(geometries[geometry], 1))+units
+        peaks = geometries_peaks[geometry][pair]
+        couplings = 1e6*geometries_couplings[geometry][pair]
+        ax.plot(mus_qd_units, couplings, color=color, label=label)
+        ax.vlines(x=mus_qd_units[peaks], ymin=-1, ymax=200, linewidth=0.5, color='gray')
+        ax.set_ylim(0, 170)
+        ax.set_title(ax_title)
+        ax.set_xlabel(r'$\mu_{cavity} [meV]$')
+        ax.set_ylabel(r'E [$\mu$eV]')
+        ax.legend(fontsize=14, loc='upper left')
+        geometry += 1
+    plt.show()
 
 
-def plot_couplings(tjs, mus, full_data, title, n_geometries, subtitles, xlims, ylims, ylim):
-    xmin, xmax = xlims
-    ymin, ymax = ylims
-    plt.close()
-    fig, ax = plt.subplots(ncols=4, nrows=n_geometries, figsize=(30, 8*n_geometries))
-    fig.suptitle(title, fontsize=22)
-    labels = [r'$E_{12}$', r'$E_{13}$', r'$E_{23}$']
-    colors = ['lightblue', 'orange', 'green']
-    g = 0
-    for i in range(n_geometries):
-        for j in range(4):
-            if j == 0:
-                kwant.plot(tjs[i][0], ax=ax[i][j])
-                ax[i][j].set_xlim(xmin, xmax)
-                ax[i][j].set_ylim(ymin, ymax)
-                ax[i][j].set_title(subtitles[i])
-            if j > 0:
-                w = j-1
-                coupling = 1e6*np.array(full_data[i][w])
-                average_coupling = np.round(np.mean(coupling), 3)
-                ax[i][j].plot(1000*mus, coupling, label=labels[w], color=colors[w])
-                ax[i][j].set_ylim(0, ylim)
-                title_subplots = r'Average coupling: '+str(average_coupling)+'[$\mu$eV]'
-                ax[i][j].set_title(title_subplots)
-                ax[i][j].legend()
-            if j == 1:
-                ax[i][j].set_ylabel(r'$E[\mu$eV]')
-            if i == n_geometries-1 and j > 0:
-                ax[i][j].set_xlabel(r'$\mu_{qd}$[eV]')  
-        g += 1
-    fig.tight_layout(pad=4, h_pad=3, w_pad=3)
-    plt.savefig('../data/full_'+title.replace(' ', '_')+'.svg')
+def plot_average_couplings(n_geometries, geometries, geometries_averages, title, units):
+    fig, axes = plt.subplots(ncols=int(n_geometries/2), nrows=4, figsize=(18, 12))
+    fig.tight_layout(h_pad=4, w_pad=2)
+    geometry = 0
+    pair = 0
+    label = r'$E_{left-right}$'
+    color = 'blue'
+    for ax in axes.flatten():
+        if geometry == n_geometries:
+            geometry = 0
+            pair = 1
+            label = r'$E_{left-center}$'
+            color = 'green'
+        ax_title = title+str(np.round(geometries[geometry], 2))+units
+        average_data = geometries_averages[geometry][pair]
+        ax.bar(x=1e3*np.array(average_data[0]),
+                     height=1e2*np.array(average_data[1]),
+                     width=1e3*np.array(average_data[2]),
+                     edgecolor='black', color=color, label=label)
+        ax.set_ylim(0, 200)
+        ax.set_title(ax_title)
+        ax.set_xlabel(r'$\mu_{cavity} [meV]$')
+        ax.set_ylabel(r'E [$\mu$eV]')
+        ax.legend(fontsize=14, loc='upper left')
+        geometry += 1
+    plt.show()
 
 
 def wfs_animation(junction, wfs, couplings, mus, ylims, xlims):

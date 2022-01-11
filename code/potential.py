@@ -1,10 +1,29 @@
-import setuptools
 import numpy as np
 import tinyarray as ta
-import sys
-from collections import OrderedDict
-
+from . tools import sort_eigen
 from poisson import LinearProblem
+import scipy.sparse.linalg as sla
+
+
+def get_potential(potential):
+    def f(x, y):
+        return potential[ta.array([x, y])]
+    return f
+
+
+def solver_potential(n):
+
+    def eigensystem_sla(tj_system, potential, params):
+
+        system, f_params_potential = tj_system
+        f_potential = get_potential(potential)
+
+        ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params_potential(potential=f_potential, params=params))
+        evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
+
+        return evals, evecs
+
+    return eigensystem_sla
 
 
 def linear_problem_instance(discrete_system):
