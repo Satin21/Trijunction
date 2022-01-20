@@ -128,7 +128,7 @@ def finite_system(**geometry):
                 return mu
 
         return triangle_shape
-    
+
     def v(mu):
         def v_shape(x, y):
             if np.tan(angle)*x <= -(y-L) and np.tan(angle)*x >= (y-L):
@@ -173,15 +173,16 @@ def finite_system(**geometry):
         elif shape == 'rectangle':
             return rectangle(mu)
 
-    def fill_system(mu_qd, mus_nw):
+    def fill_system(mu_qd, mus_nw, sigma=0):
 
         def system(x, y):
             if 0 <= y < L-connection:
                 f = scatter(mu=mu_qd)
+                noise = np.random.normal(0, sigma)
             else:
                 f = wires(mu=mus_nw)
-
-            return f(x, y)
+                noise = 0
+            return f(x, y) + noise
 
         return system
 
@@ -192,7 +193,8 @@ def finite_system(**geometry):
         Delta = params.pop('Delta')
         phi1 = params.pop('phi1')
         phi2 = params.pop('phi2')
-        f_chemical_potential = fill_system(mu_qd=mu_qd, mus_nw=mus_nw)
+        sigma = params.pop('sigma')
+        f_chemical_potential = fill_system(mu_qd=mu_qd, mus_nw=mus_nw, sigma=sigma)
         f_Delta_re = fill_system(mu_qd=0, mus_nw=Delta * np.array([1, np.cos(phi1), np.cos(phi2)]))
         f_Delta_im = fill_system(mu_qd=0, mus_nw=Delta * np.array([0, np.sin(phi1), np.sin(phi2)]))
 
