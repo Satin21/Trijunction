@@ -4,7 +4,6 @@ sys.path.insert(0, "/home/tinkerer/Poisson_Solver")
 
 import kwant
 import numpy as np
-import tinyarray as ta
 from scipy import constants
 import itertools as it
 import scipy.sparse.linalg as sla
@@ -12,6 +11,8 @@ import scipy.sparse.linalg as sla
 from potential import gate_potential, linear_problem_instance
 from .gates_trijunction import triangular_gates_2
 from .finite_system import finite_system
+from .solvers import junction_parameters, phase, bands
+from .tools import get_potential
 
 
 from utility import prepare_voltages
@@ -26,12 +27,13 @@ from layout import (
 )
 from Hamiltonian import discrete_system_coordinates, kwant_system, tight_binding_Hamiltonian
 
+mu = bands[0]
 # Set up system paramters
 thickness_GaAs = 6
 thickness_twoDEG = 4
 thickness_Al2O3 = 4
 thickness_gate = 2
-thickness_self_Al2O3 = 4
+thickness_self_Al2O3 = 0
 
 meff = 0.023 * constants.m_e  # in Kg
 eV = 1.0
@@ -174,12 +176,7 @@ def potential(voltage_setup, offset=offset, grid_spacing=1):
     )
     return clean_potential
 
-def get_potential(potential):
-    def f(x, y):
-        return potential[ta.array([x, y])]
-    return f
-
-def get_hamiltonian(voltage_setup, key_1, val_1, key_2, val_2, params):
+def get_hamiltonian(voltage_setup, key_1, val_1, key_2, val_2, params, points):
     voltage_setup[key_1] = val_1
     voltage_setup[key_2] = val_2    
     f_pot = get_potential(potential(voltage_setup=voltage_setup, grid_spacing=10e-9))
@@ -187,16 +184,36 @@ def get_hamiltonian(voltage_setup, key_1, val_1, key_2, val_2, params):
     ham_mat = trijunction.hamiltonian_submatrix(sparse=True,
                                                 params=f_params_potential(potential=f_pot,
                                                                           params=params))
-
-    return ham_mat
-
-def get_potential_change_of_sign(voltage_setup, key_1, val_1, key_2, val_2, val_reference, points):
-    voltage_setup[key_1] = val_1
-    voltage_setup[key_2] = val_2    
-    f_pot = get_potential(potential(voltage_setup=voltage_setup, grid_spacing=10e-9))
     
+    return ham_mat, potential_at_gates(f_pot, points)
+
+def potential_at_gates(f_pot, points):
     data = []
     for point in points:
         x, y = point
-        data.append(np.log10(np.abs(f_pot(x, y)-val_reference)))
+        data.append(f_pot(x, y))
     return np.array(data)
+
+def solver_electrostatics(tj_system, voltage_setup, pair, key, n, eigenvecs):
+
+    params = junction_parameters(m_nw=np.array([mu, mu, mu]), m_qd=0)
+    params.update(phase(pair))
+
+    def eigensystem_sla(val):
+        
+        system, f_params_potential = tj_system
+
+        voltage_setup[key] = val
+        f_potential = get_potential(potential(voltage_setup=voltage_setup, grid_spacing=10e-9))
+        f_params = f_params_potential(potential=f_potential, params=params)
+        ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params)
+
+        if eigenvecs:
+            evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
+        else:
+            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
+            evecs = []
+
+        return evals, evecs
+
+    return eigensystem_sla 
