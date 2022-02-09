@@ -144,7 +144,7 @@ def triangular_gates_2(area, angle, wire_width, tunel_length, gap, extra_width):
     triangle_length = np.sqrt(area*np.tan(angle))
     triangle_width = 2 * np.abs((triangle_length/np.tan(angle)))
     top_shift = np.tan(angle)*(wire_width/2)
-    tunel_length = 2
+    tunel_length = tunel_length
     tunel_width = wire_width
 
     total_length = triangle_length + 2 * tunel_length + 2 * gap - top_shift

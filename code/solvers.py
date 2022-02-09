@@ -124,7 +124,7 @@ def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
         params = junction_parameters(m_nw=np.array([mu, mu, mu]), m_qd=0)
         params.update(phase(pair))
         system, f_params_potential = tj_system
-        
+
         potential = potentials[potential_index]
         f_potential = get_potential(potential[voltage])
 

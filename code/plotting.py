@@ -2,6 +2,49 @@ import kwant
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
+from . tools import find_cuts
+
+def plot_potential_at_barriers(
+    volts, potentials, mu, color_label, title='Potential cut along barriers'
+):
+    yint = 1e3*volts
+    x, potential_cuts_bot = find_cuts(potentials, cut=10e-9)
+    potential_cuts_bot = np.array(potential_cuts_bot)
+    xs = np.array([x for i in range(len(potential_cuts_bot))])
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    lc1 = multiline(1e9*xs, -1e3*(potential_cuts_bot-mu), yint, cmap='viridis', lw=0.3, ax=ax)
+
+    axcb = fig.colorbar(lc1)
+    axcb.set_label(color_label, fontsize=13)
+    ax.set_title(title)
+    ax.set_ylabel(r'$V-\mu_0$ [mV]')
+    ax.set_xlabel(r'x [nm]')
+    plt.show()
+
+
+def plot_gates(gates, scale=10):
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    types_of_gates = list(gates.keys())
+    colors = ['b', 'g', 'r']
+    i = 0
+    for key in types_of_gates:
+
+        for _, gate in gates[key].items():
+            gate = scale*gate
+            ax.plot(gate[:, 0], gate[:, 1], c=colors[i], label=key)
+            ax.plot([gate[0, 0], gate[-1, 0]], [gate[0, 1], gate[-1, 1]], c=colors[i], label=key)
+        i += 1
+
+    ax.set_ylabel('y [nm]')
+    ax.set_xlabel('x [nm]')
+
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys(), loc='upper left')
+    ax.set_title('Planar gates configuration')
+    plt.show()
 
 def plot_couplings(n_geometries, geometries, mus_qd_units, geometries_peaks, geometries_couplings, title, units):
     fig, axes = plt.subplots(ncols=int(n_geometries/2), nrows=4, figsize=(18, 12))

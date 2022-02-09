@@ -3,7 +3,13 @@ import numpy as np
 from scipy.signal import find_peaks
 import matplotlib.animation as animation
 import sys
+import tinyarray as ta
 
+
+def get_potential(potential):
+    def f(x, y):
+        return potential[ta.array([x, y])]
+    return f
 
 def find_cuts(potentials, cut=10e-9, scale=1):
 
