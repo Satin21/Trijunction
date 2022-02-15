@@ -1,59 +1,170 @@
 \chapter{Background}
 
 \section{Introduction}
-\begin{enumerate}
-\item Majorana bound states (MBS) can be used to create a non-local qubit robust against local noise.
-\item While coupling a single MBS pair can be done using a quantum dot, selective coupling of multiple pairs remains a challenge.
-\item In this work we propose a semiconducting cavity connected to three Majorana stripes that allows for an all-electric controlled interaction between all pairs of MBS.
-\item Several cavity geometries are analysed, and a triangular cavity with varying angle is found to have the largest coupling for all pairs.
-\item The electrostatics effects of the gate-defined triangular cavity are analysed and the operational point is described.
-\end{enumerate}
+
+%\textit{Majorana bound states (MBS) can be used to create a non-local qubit robust against local noise.}
+MBS appear as the zero-energy modes of a hybrid quasi-one dimensional system that combines a strong-spin orbit semiconductor with proximity induced superconductivity.
+%Also, one requires a magnetic field parallel to the wire direction.
+Semiconducting nanowires and two-dimensional electron gases (2DEG) are candidates for creating such devices, yet no evidence of such excitations has been found.
+Nevertheless, the existence of MBS would allow us to design new qubits that are resilient to noise in contrast to current devices.
+
+\textit{While coupling a single MBS pair can be done using a quantum dot, selective coupling of multiple pairs remains a challenge.}
+%Information encoded in MBS remains protected as long as they are well separated from each other.
+In the presence of multiple pairs, coupling MBS from different fermions induces a non-trivial evolution of the ground state that supports quantum gate operation.
+%Once the coupling between them is finite, empty and occupied states acquire a finite energy.
+Coupling of a pair of MBS in a S-N-S junction has been extensively studied, and the fractional Josephson effect has been found as a signature of MBS present in such system.
+On the other hand, coupling multiple MBS pairs remains a challenge given the constrains on the nanowires alignment and separation.
+%Designs for large scale MBS based quantum computation have been proposed based on gate arrays on semiconductors or superconducting islands.
+
+The simplest system where multiple MBS can couple non-trivially is in a trijunction geometry.
+\textit{In this thesis we propose a semiconducting cavity connected to three Majorana nanowires that allows for an all-electric controlled interaction between all pairs of MBS.}
+
+Initially, the role of geometry is investigated by simulating several cavity geometries and extracting the MBS coupling in the strong coupling regime.
+It is found that different cavity levels mediate differently the coupling of different MBS pairs.
+We found that there is an angle for a triangular cavity that induces a maximum coupling between the far MBS pairs.
+\textit{Several cavity geometries are analysed, and a triangular cavity with varying angle is found to have the largest coupling for all pairs.}
+
+Finally, a realistic model is studied via electrostatic simulations of the triangular cavity with optimal configuration defined on a 2DEG.
+The non-local nature of the gates makes the nanowire positions crucial in order to recover the effects found for the purely geometric case.
+The role of each set of gates and the range of voltages used to operate the device are discussed.
+\textit{The electrostatics effects of the gate-defined triangular cavity are analysed and the operational point is described.}
+
 
 \section{Majorana bound states}
 
-\begin{enumerate}
-\item MBS are the non-local degenerate ground state of a topological superconductor as initially proposed by Kitaev.
-\item Quantum information can be encoded in the ground state since even and odd parity states are degenerate.
-\item Since a pair of spatially separated MBS encodes a single fermionic mode, its quantum state is protected against local errors by particle-hole symmetry.
-\end{enumerate}
+\textit{MBS emerge as the non-local degenerate ground state of a topological superconductor.}
+Under the appropriate conditions, a spinless one-dimensional $p$-wave superconductor contains two zero-energy excitations that are exponentially localised at the edges of the system. 
+Together, these two zero-energy modes encode a single fermionic mode that can be empty or occupied, 
+\begin{equation}
+f = \frac{\gamma_{L} + i\gamma_{R}}{\sqrt{2}}, \quad f^{\dagger} = \frac{\gamma_{L} - i \gamma_{R}}{\sqrt{2}},
+\end{equation}
+where $\gamma_{i} = \gamma_{i}^{\dagger}$ are Majorana operators that $\{ \gamma_{i}, \gamma_{j} \} = 2\delta_{ij}$.
+%The ground state $\ket{\Psi}$ is two-dimensional, and it is spanned by the states $\ket{0}$ and $f^{\dagger}\ket{0}$, i.e. empty and occupied states.
+
+\textit{Since a pair of spatially separated MBS encode a single fermionic mode, its quantum state is protected against local errors by particle-hole symmetry.}
+In a sufficiently large nanowire, MBS are completely decoupled from each other, and noise sources will interact with each of them individually.
+The interaction with a single MBS is proportional to a single Majorana operator, i.e. $\gamma \sim f + f^{\dagger}$, and thus it will change the parity of the system.
+In a superconductor, however, electrons can only enter or leave as Cooper pairs, which means that the parity is conserved. 
+Therefore, individual MBS are immune to local noise sources.
+
+\textit{The ground state can only be controlled by non-local operations that involve pairs of MBS.}
+Given parity conservation, only even powers of Majorana operators are allowed in the Hamiltonian.
+The simplest allowed term describes the coupling of a pair of MBS, and it is given by
+\begin{equation}
+H_{pair} = i E_{LR} \gamma_{L} \gamma_{R} = E_{LR} (1 - 2 f^{\dagger} f).
+\end{equation}
+Here, $E_{LR}$ is the tunnelling coupling between the two MBS, and it is usually cancelled in sufficiently long nanowires.
+
+In the presence of multiple MBS pairs, each parity subspace can be used as a computational subspace where quantum information is protected.
+\textit{By controlling the coupling between different MBS pairs, one can control the ground state evolution}, that is,
+\begin{equation}
+\ket{\Psi} \rightarrow U(t)\ket{\Psi}, \quad U(t) = \exp(iH_{pair} t).
+\end{equation}
 
 \section{Experimental platforms}
 
-\begin{enumerate}
-\item MBS can be realised in quasi one-dimensional systems defined on two-dimensional electron gases (2DEGs) or semiconducting nanowires in proximity to a superconductor.
-% \item A quasi-one dimensional semiconducting system contains multiple transverse sub-bands whose energy and other properties, such as spin-orbit or effective mass, are affected by the geometry and the coupling to the superconductor.
- \item Control over the chemical potential and tunnel coupling to nearby leads is mediated via electrostatic gates, but it is mostly screened inside the nanowire by the presence of the superconductor.
-\item Disorder in the nanowire bulk can be detrimental for MBS since it affects its localisation and properties, such as induced gap, while disorder inside the superconductor enhances the induced gap in the nanowire.
-\end{enumerate}
+%MBS were only in Kitaev's toy model until several proposals for realising them on solid-state devices appeared.
+%The main problem was that electrons are not spinless, and $p$-wave superconductor have not been found so far.
+%Superconductors pair electrons with different spins, i.e. singlets, as suggested by BCS theory.
+%However, by combining a $s$ wave-superconductor, such as Al, and a material with strong spin orbit coupling, such as $InAs$ or $InSb$, one can effectively realise spinless fermions in the presence of a magnetic field.
+%However, creating such material combination 
+\textit{MBS can be realised in quasi one-dimensional systems defined on two-dimensional electron gases (2DEGs), or semiconducting nanowires, with strong spin-orbit and in proximity to a superconductor.}
+The Hamiltonian that realises a Majorana nanowire is,
+\begin{equation}
+\mathcal{H} = \sum_k \Psi_k^\dagger H(k) \Psi_k  ,\quad H(k) =  \left[ \frac{|\mathbf{k}|^2}{2 m^*} - \mu + \alpha(k_x \sigma_y - k_y \sigma_x) \right] \tau_z + B_x \sigma_x  + \Delta \tau_x.
+\end{equation}
+Here, $\Psi_k^\dagger = (f_{k\uparrow}^\dagger, f_{k\downarrow}^\dagger, f_{k\uparrow} f_{k\downarrow})^T$ are the Nambu spinors in $k$ space, $\mu$ is the chemical potential, $\mathbf{k}$ is the 2D wave-vector, $\alpha$ is the spin orbit interaction, $B_x$ is the Zeeman field, $\Delta$ is the superconducting gap, and $\sigma$ and $\tau$ are Pauli matrices for the spin and particle-hole basis.
+
+MBS appear as zero energy excitations of this Hamiltonian when $B_x^2 \geq \sqrt{\mu^2 + \Delta^2}$.
+However, \textit{realising such material combination is difficult, and MBS transport signatures are not unambiguous.}
+On the one hand, these interaction destroy each other mutually as is the case of superconductivity and magnetic fields.
+On the other hand, MBS signatures can be reproduced by states localised in material defects or impurities.
+Therefore, highly tunable devices with low impurities and disorder are required to unambiguously detect MBS.
+
+\textit{MBS can appear in different nanowire sub-bands.}
+In a quasi-one dimensional systems, there is a translational invariant direction, and a direction with finite width $W$.
+The energy of each mode has a contribution from both, and it is given by,
+\begin{equation}
+E_{n}(k) = \frac{\hbar^{2}}{2m^*} \left( k^{2} + \frac{\pi^{2} n^{2}}{W^{2}} \right).
+\end{equation}
+Here, $m^{*}$ is the effective mass and the spin orbit splitting is not considered.
+Independent MBS with different momentum profiles can be formed at each transverse mode when the chemical potential is at the bottom of the corresponding band.
+Multiple channel become relevant in the presence of disorder.
+It couples differently to each momentum sub band, which will induce band mixing as has been suggested in experiments.
+
+%\textit{Disorder in the nanowire bulk can be detrimental for MBS since it affects its localisation and properties, such as induced gap, while disorder inside the superconductor enhances the induced gap in the nanowire.}
 
 \subsection{Two dimensional electron gases}
 
-\begin{enumerate}
-\item 2DEGs are a good platform for MBS based quantum computation because complex geometries can be defined in the same layer, whereas nanowires require mechanical matching.
-\item Initial experiments\cite{Shabani2015,Kjaergaard2016} focused on characterising the properties of semiconducting layers, such as large $g$-factor and large spin-orbit, with a superconducting layer.
-\item Later experiments focused on tunnel spectroscopy of stripe-like geometries\cite{Suominen2017} where a zero bias peak (ZBP) was found, but its origin was trivial Andreev states rather than MBS.
-\item 2DEGs are suitable to create gate defined shapes with interesting geometry dependent properties in the ballistic regime, yet in MBS experiments only stripes and planes have been developed so far.
-\end{enumerate}
+In a clean system, electrons travel ballistically, and their motion is directly determined by the shape of the system boundaries.
+\textit{2DEGs allow for arbitrary geometries to be defined in the same layer using different electrostatic gates.}
+Furthermore, it been shown that geometric dependence can be used to enhance the property of Majorana devices.
+On the other hand, in semiconducting nanowires networks MBS is limited to narrow transverse channels.
+Therefore, 2DEGs are an interesting platform to study the role of geometry in MBS coupling with gate defined shapes.
+
+\textit{Parallel Majorana nanowires are the basic elements for a complex Majorana device.}
+Multiple nanowires require to be aligned in order to have a stable topological phase.
+Each Majorana nanowire can be defined on a 2DEG by adding a superconducting strip on top of the selected region.
+A a top gate is deposited next on top of the device such that depletes the surrounding 2DEG.
+A narrow quasi-one dimensional channel is created below the superconductor, and it is expected to find MBS at the edges.
+
+\textit{Majorana experiments on 2DEGs have shown promising evidence for scalable and complex devices.}
+Initial experiments\cite{Shabani2015,Kjaergaard2016} focused on characterising the properties of semiconducting layers with a superconducting cover.
+Advances in material growth allowed for clean interfaces with a hard superconducting gap to develop into the nanowire region.
+Later experiments focused on tunnel spectroscopy of stripe-like geometries\cite{Suominen2017} where a zero bias peak (ZBP) was found.
+However, due to disorder and defects such ZBPs have most likely a trivial origin from Andreev states rather than MBS.
+Nevertheless, efforts to develop scalable devices in 2DEGs are made and new promising materials are being studied.
+
+\subsection{Electrostatic gates}
+
+\textit{The electrostatic potential in a 2DEG is found by solving the Poisson equation using a finite elements method on the device geometry.}
+The potential landscape in a 2DEG can be controlled by deposition of metallic gates on a top layer with an insulating barrier in between that smooths the potential profile.
+The potential landscapce, $U(\mathbf{r})$, for a given geometrical configuration can be found by solving Laplace equation, 
+\begin{equation}
+\nabla \cdot \left[ \varepsilon_r(\mathbf{r}) \nabla U(\mathbf{r}) \right] = 0.
+\end{equation}
+Here, $\varepsilon_r$ is the relative permitivity of each layer in the material stack.
+
+\textit{Electrostatic effects play a crucial role in designing and operating Majorana devices}.
+Characterisation of Majorana nanowire is done via transport measurements that require tunnel coupled leads and gates.
+Furthermore, gates have a non-local effect on the potential landscape that differs between experimental platforms.
+For example, nanowires have a partial superconducting coating that allows for the electric field to penetrate and control the semiconductor and superconductor weight of the wavefunction.
+In 2DEGs, on the contrary, the superconducting coat fully covers it, which screens electrostatic effects.
+
+\section{Majorana bound states in a trijunction}
+
+\textit{There are two main approaches for MBS quantum computation: braiding and joint parity measurements.}
+Braiding was initially proposed as moving MBS around each other in gate defined nanowire networks\cite{Alicea2011}. 
+However, this method requires high degree of control and is highly susceptible to thermal errors\cite{Pedrocchi2015}.
+On the other hand, joint parity measurements coupling multiple pairs of MBS\cite{Plugge2017} by using co-tunnelling processes between different MBS on superconducting islands.
+These methods do not rely on geometrical effects, and are often discussed in terms of a phenomenological Hamiltonian.
+
+\textit{In a trijunction, demonstration of the simplest non-trivial Majorana evolution experiment can be done.}
+In order to create a Majorana qubit, three or more MBS with precisely controlled interactions are required.
+The interaction between different MBS pairs is mediated by the cavity modes, which crucially depends on the nanowires positions and the cavity geometry.
+By controlling the coupling of each pair via a DC voltage pulse sequence, one determines the evolution of the MBS.
+Initial studies\cite{Hell2016} have shown that MBS can connect via a semiconducting cavity in a fork-like geometry.
+
+\textit{However, design and operation of a trijunction are non-trivial tasks.}
+Simultaneous tuning of gate voltages and relative phase difference is required to optimally operate a trijunction.
+Selection of the MBS pair and cavity modes is realised by electrostatic gates controlling the potential on each region.
+Furthermore, relative phase differences between MBS modulates the coupling as in the fractional Josephson effect.
+The phase will be shifted by the presence of complex hopping terms and by the nanowires relative position.
 
 
-\section{Quantum operations with Majorana bound states}
-
-\begin{enumerate}
+%\begin{enumerate}
 %\item The dimension of the computational Hilbert space depends on the number of MBS, and thus multiple parallel Majorana nanowires are required for MBS based quantum computing.
-\item The state of the degenerate manifold of MBS can be non-trivially changed by adiabatically moving the particles around each other, i.e. non-Abelian exchange statistics.
-\item Initial proposals were based on moving MBS around each other in gate defined nanowire networks\cite{Alicea2011}, but this method requires high degree of control and is highly susceptible to thermal errors\cite{Pedrocchi2015}.
-\item An equivalent approach that does not require to move the MBS is given by joint parity measurements\cite{Bonderson2008}, but it requires simultaneous measurement of different pairs of MBS.
-\item Current proposals for coupling multiple pairs of Majoranas, such as the Majorana box qubit\cite{Plugge2017}, couple each nanowire individually to a QD that later close in a loop.
-\item To the best of our knowledge, there is a single study\cite{Hell2016} where MBS are connected via a semiconducting cavity in a fork-like geometry, yet geometry role has proven to be fundamental in how leads states couple\cite{Wirtz1997}.
-\end{enumerate}
+%\item 
+%\item An equivalent approach that does not require to move the MBS is given by joint parity measurements\cite{Bonderson2008}, but it requires simultaneous measurement of different pairs of MBS.
 
-\section{Quantum dot mediated coupling}
 
-\begin{enumerate}
-\item A single nanowire coupled to a quantum dot (QD) allows to measure the parity of a pair of MBS via a measurement of the charge in the dot.
+%\section{Quantum dot mediated coupling}
+
+%\begin{enumerate}
+%\item A single nanowire coupled to a quantum dot (QD) allows to measure the parity of a pair of MBS via a measurement of the charge in the dot.
 %\item In a single nanowire model, the interaction is controlled by the overlap of the MBS pair which depends on the wire length.
-\item Two nanowires with a QD in the middle recovers the well-know Josephson junction whose spectra can be controlled by the phase difference between the two superconductors.
-\item The fractional Josephson effect, $4\pi$ phase periodicity, is a consequence of the presence of a zero-energy fermionic mode made of two MBS.
+%\item Two nanowires with a QD in the middle recovers the well-know Josephson junction whose spectra can be controlled by the phase difference between the two superconductors.
+%\item The fractional Josephson effect, $4\pi$ phase periodicity, is a consequence of the presence of a zero-energy fermionic mode made of two MBS.
 
-\end{enumerate}
+%\end{enumerate}
 
