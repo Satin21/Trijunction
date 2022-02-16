@@ -56,41 +56,64 @@ def check_level_smooth_v2(level):
     return level
 
 
-def find_resonances(energies, n, n_peaks, i=1, sign=-1, prominence=0):
+def find_resonances(energies, n_peaks, n=6, i=1, sign=1, **kwargs):
+    """
+    Extract peaks from np.abs(lowest) mode in energies.
+    Cy choosing 'sign' we extract either peaks or dips.
+    Parameters:
+    -----------
+    """
     levels = energies.T
     ground_state = check_level_smooth(check_level_smooth_v2(levels[n//2 + i]))
-    if prominence > 0:
-        crossings, _ = find_peaks(sign*np.abs(ground_state), prominence=prominence)
-    else:
-        crossings, _ = find_peaks(sign*np.abs(ground_state))
+    crossings, _ = find_peaks(sign*np.abs(ground_state), **kwargs)
 
     return crossings[:n_peaks], ground_state
 
 
-def extract_peaks(geometries_peaks, geometries_couplings, geometries_widths):
-    peaks = []
-    widths = []
-    n_geometries = geometries_couplings.shape[0]
-    for pair in range(3):
-        peaks_pair = geometries_peaks[:, pair]
-        couplings_pair = geometries_couplings[:, pair]
-        widths_pair = geometries_widths[:, pair]
-        n_peaks = peaks_pair.shape[1]
+def coupling_data(data, n_peaks=-1, n=6, i=1, eigenvecs=False, **kwargs):
+    """
+    Extract data associated to the first excited level, i.e. coupled majoranas,
+    for each connection in the trijunction.
+    """
+    dat_13, dat_12, dat_23 = separate_data_wires(data)
 
-        geometry_peaks_pair = []
-        geometry_widths_pair = []
+    en_13, wfs_13 = separate_energies_wfs(dat_13)
+    en_12, wfs_12 = separate_energies_wfs(dat_12)
+    en_23, wfs_23 = separate_energies_wfs(dat_23)
 
-        for i in range(n_geometries):
-            geometry_peaks_pair.append(couplings_pair[i][peaks_pair[i]])
-            geometry_widths_pair.append(widths_pair[i][:n_peaks])
+    peaks_13, coupling_13 = find_resonances(en_13, n_peaks=n_peaks, i=i, **kwargs)
+    peaks_12, coupling_12 = find_resonances(en_12, n_peaks=n_peaks, i=i, **kwargs)
+    peaks_23, coupling_23 = find_resonances(en_23, n_peaks=n_peaks, i=i, **kwargs)
+    couplings = [coupling_13, coupling_12, coupling_23]
 
-        geometry_peaks_pair = np.array(geometry_peaks_pair).T
-        peaks.append(geometry_peaks_pair)
-        
-        geometry_widths_pair = np.array(geometry_widths_pair).T
-        widths.append(geometry_widths_pair)
+    peaks_13 = check_peaks(peaks_13, coupling_13, n_peaks=n_peaks)
+    peaks_12 = check_peaks(peaks_12, coupling_12, n_peaks=n_peaks)
+    peaks_23 = check_peaks(peaks_23, coupling_23, n_peaks=n_peaks)
+    peaks = [peaks_13, peaks_12, peaks_23]
 
-    return np.array(peaks), np.array(widths)
+    if not eigenvecs:
+        wfs = []
+    else:
+        wfs = [wfs_13[:, n//2+1], wfs_12[:, n//2+1], wfs_23[:, n//2+1]]
+
+    return couplings, wfs, peaks
+
+
+def check_peaks(peaks, coupling, n_peaks):
+    """
+    Check if the number of peaks is the correct, otherwise return random positions.
+    This happens when the coupling is negligible.
+    """
+
+    if len(peaks) == n_peaks:
+        peaks = peaks
+    #elif 0 < len(peaks) < n_peaks:
+     #   n_missing = n_peaks - len(peaks)
+       # peaks = np.append(peaks, np.zeros(n_missing, dtype=int))
+    elif len(peaks) == 0:
+        peaks = np.arange(n_peaks, dtype=int)
+
+    return peaks
 
 
 def separate_data_wires(data):
@@ -141,27 +164,6 @@ def spectra_data(data):
     energies = [en_13, en_12, en_23]
     wfs = [wfs_13, wfs_12, wfs_23]
     return energies, wfs
-
-
-def coupling_data(data, n_peaks=-1, n=6, i=1, sign=-1, eigenvecs=False, prominence=0):
-    """
-    Extract data associated to the first excited level, i.e. coupled majoranas,
-    for each connection in the trijunction.
-    """
-    dat_13, dat_12, dat_23 = separate_data_wires(data)
-    en_13, wfs_13 = separate_energies_wfs(dat_13)
-    en_12, wfs_12 = separate_energies_wfs(dat_12)
-    en_23, wfs_23 = separate_energies_wfs(dat_23)
-    peaks_13, coupling_13 = find_resonances(en_13, n=n, n_peaks=n_peaks, i=i, sign=sign, prominence=prominence)
-    peaks_12, coupling_12 = find_resonances(en_12, n=n, n_peaks=n_peaks, i=i, sign=sign, prominence=prominence)
-    peaks_23, coupling_23 = find_resonances(en_23, n=n, n_peaks=n_peaks, i=i, sign=sign, prominence=prominence)
-    couplings = [coupling_13, coupling_12, coupling_23]
-    if not eigenvecs:
-        wfs = []
-    else:
-        wfs = [wfs_13[:, n//2+1], wfs_12[:, n//2+1], wfs_23[:, n//2+1]]
-    peaks = [peaks_13, peaks_12, peaks_23]
-    return couplings, wfs, peaks
 
 
 def separate_data_geometries(data, n_geometries):

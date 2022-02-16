@@ -66,14 +66,14 @@ def finite_system(**geometry):
         centers = geometry['centers']
 
         start = [0,0]
-        
+
     elif shape == 'v':
         A = geometry['A']  # triangles defined by the total area
         angle = geometry['angle']
 
         L = np.sqrt(A*np.tan(angle))
         W = np.sqrt(np.abs(A/np.tan(angle)))
-        
+
         w_v = geometry['w_v']
         difference = W - w_v
         smaller_area = np.tan(angle)*difference**2
@@ -83,6 +83,27 @@ def finite_system(**geometry):
         centers = [center, -center]
         connection = np.tan(angle)*(w/2)
         start = [0, L]
+
+    elif shape == 'y':
+        A = geometry['A']  # triangles defined by the total area
+        angle = geometry['angle']
+        radius = geometry['radius']
+
+        L = np.sqrt(A*np.tan(angle))
+        W = np.sqrt(np.abs(A/np.tan(angle)))
+        
+        diag_length = np.sqrt(L**2 + W**2)
+        L += diag_length
+
+        w_v = geometry['w_v']
+        difference = W - w_v
+        smaller_area = np.tan(angle)*difference**2
+        l_w = np.sqrt(smaller_area*np.tan(angle))
+
+        center = W - w_v/2
+        centers = [center, -center]
+        connection = 0
+        start = [0, L+a]
 
     elif shape == 'rectangle':
         L = geometry['L']
@@ -135,6 +156,17 @@ def finite_system(**geometry):
                 if not (np.tan(angle)*x <= -(y-l_w) and np.tan(angle)*x >= (y-l_w)):
                     return mu
         return v_shape
+    
+    def y(mu):
+        def y_shape(x, y):
+            if x**2 + (y-L+diag_length)**2 <= radius**2:
+                return mu
+            elif np.tan(angle)*x <= -(y-L+diag_length) and np.tan(angle)*x >= (y-L+diag_length):
+                if not (np.tan(angle)*x <= -(y-l_w) and np.tan(angle)*x >= (y-l_w)):
+                    return mu
+            elif (y-L+diag_length) <= diag_length and np.abs(x) <= w/2:
+                return mu
+        return y_shape
 
     def ring(mu):
         # circle shape
@@ -172,6 +204,8 @@ def finite_system(**geometry):
             return v(mu)
         elif shape == 'rectangle':
             return rectangle(mu)
+        elif shape == 'y':
+            return y(mu)
 
     def fill_system(mu_qd, mus_nw, sigma=0):
 
@@ -182,7 +216,8 @@ def finite_system(**geometry):
             else:
                 f = wires(mu=mus_nw)
                 noise = 0
-            return f(x, y) + noise
+            if f(x, y) is not None:
+                return f(x, y) + noise
 
         return system
 
@@ -195,8 +230,10 @@ def finite_system(**geometry):
         phi2 = params.pop('phi2')
         sigma = params.pop('sigma')
         f_chemical_potential = fill_system(mu_qd=mu_qd, mus_nw=mus_nw, sigma=sigma)
-        f_Delta_re = fill_system(mu_qd=0, mus_nw=Delta * np.array([1, np.cos(phi1), np.cos(phi2)]))
-        f_Delta_im = fill_system(mu_qd=0, mus_nw=Delta * np.array([0, np.sin(phi1), np.sin(phi2)]))
+        f_Delta_re = fill_system(mu_qd=0,
+                                 mus_nw=Delta * np.array([1, np.cos(phi1), np.cos(phi2)]))
+        f_Delta_im = fill_system(mu_qd=0,
+                                 mus_nw=Delta * np.array([0, np.sin(phi1), np.sin(phi2)]))
 
         params.update(mu=f_chemical_potential)
         params.update(Delta_re=f_Delta_re)
@@ -239,6 +276,7 @@ def circular_junction(**geometry):
     R = geometry['R']
     L = geometry['L']
     w = geometry['w']
+    angle = geometry['angle']
 
     hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
     + alpha * k_x * kron(sigma_y, sigma_z)
@@ -250,7 +288,7 @@ def circular_junction(**geometry):
     a = 10e-9
     template = kwant.continuum.discretize(hamiltonian, grid=a)
 
-    lower_wires_center = R*np.array([np.cos(-np.pi/6), np.sin(-np.pi/6)])
+    lower_wires_center = R*np.array([np.cos(-angle), np.sin(-angle)])
     x_c, y_c = lower_wires_center
 
     def circle_shape(mu_qd=True, mus_nw=[True, True, True]):
@@ -264,6 +302,15 @@ def circular_junction(**geometry):
             elif L >= y >= R and -w/2 <= x <= w/2:
                 return mus_nw[2]
         return shape
+    
+        def shape(x, y):
+            if x**2 + (y-L+diag_length)**2 <= radius**2:
+                return mu
+            elif np.tan(angle)*x <= -(y-L+diag_length) and np.tan(angle)*x >= (y-L+diag_length):
+                if not (np.tan(angle)*x <= -(y-l_w) and np.tan(angle)*x >= (y-l_w)):
+                    return mu
+            elif (y-L+diag_length) <= diag_length and np.abs(x) <= w/2:
+                return mu
 
     def builder_shape(**geometry):
         """Return a function used to create builder as TJ shape."""

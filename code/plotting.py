@@ -46,8 +46,22 @@ def plot_gates(gates, scale=10):
     ax.set_title('Planar gates configuration')
     plt.show()
 
-def plot_couplings(n_geometries, geometries, mus_qd_units, geometries_peaks, geometries_couplings, title, units):
-    fig, axes = plt.subplots(ncols=int(n_geometries/2), nrows=4, figsize=(18, 12))
+
+def plot_couplings(
+    n_geometries,
+    geometries,
+    mus_qd_units,
+    geometries_peaks,
+    geometries_couplings,
+    title,
+    units,
+    n_cols,
+    n_rows,
+    figsize=(18, 12)
+):
+    """
+    """
+    fig, axes = plt.subplots(ncols=n_cols, nrows=n_rows, figsize=figsize)
     fig.tight_layout(h_pad=4, w_pad=2)
     geometry = 0
     pair = 0
@@ -59,7 +73,7 @@ def plot_couplings(n_geometries, geometries, mus_qd_units, geometries_peaks, geo
             pair = 1
             label = r'$E_{left-center}$'
             color = 'green'
-        ax_title = title+str(np.round(geometries[geometry], 1))+units
+        ax_title = title+str(np.round(geometries[geometry], 3))+units
         peaks = geometries_peaks[geometry][pair]
         couplings = 1e6*geometries_couplings[geometry][pair]
         ax.plot(mus_qd_units, couplings, color=color, label=label)
@@ -68,7 +82,6 @@ def plot_couplings(n_geometries, geometries, mus_qd_units, geometries_peaks, geo
         ax.set_title(ax_title)
         ax.set_xlabel(r'$\mu_{cavity} [meV]$')
         ax.set_ylabel(r'E [$\mu$eV]')
-        ax.legend(fontsize=14, loc='upper left')
         geometry += 1
     plt.show()
 

@@ -46,6 +46,23 @@ def phase(pair):
     extra_params = {key_phi: phis[pair]}
     return extra_params
 
+
+def phase_params(key, param, band_index=0, n=100):
+    wires = finite_coupling_parameters(band_index)
+    phases = np.linspace(0, 2*np.pi, n)
+    params = []
+    for phase in phases:
+        i = 0
+        for wire in wires:
+            if i < 1:
+                updated_params = {key: param, 'phi1': phase, 'phi2': 0}
+            else:
+                updated_params = {key: param, 'phi2': phase, 'phi1': 0}
+            params.append(wire | updated_params)
+            i += 1
+    return params
+
+
 # helper functions
 def lead_parameters(m_nw, m_qd, B):
     a = 10E-9
@@ -94,7 +111,11 @@ def get_potential(potential):
 
 
 def solver(geometries, n, key, eigenvecs=False):
-
+    """
+    Return a function that diagonalizes the Hamiltonian for different geometries.
+    The parameters for the Hamiltonian are set from the beginning, and only one
+    parameter is varied via key and mu.
+    """
     def eigensystem_sla(geometry_index, mu, extra_params):
 
         params = junction_parameters(m_nw=np.array([-2, -2, -2]), m_qd=0)
@@ -106,7 +127,7 @@ def solver(geometries, n, key, eigenvecs=False):
         ham_mat = system.hamiltonian_submatrix(sparse=True, params=params_func(**params))
 
         if not eigenvecs:
-            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=False))
+            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
             evecs = []
         else:
             evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
@@ -117,6 +138,11 @@ def solver(geometries, n, key, eigenvecs=False):
 
 
 def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
+    """
+    Return a function that diagonalizes the Hamiltonian for a single geometry.
+    The potential is defined as a list of dictionaries, each contains the
+    potential for every site in the system.
+    """
 
     def eigensystem_sla(potential_index, voltage, pair):
 
@@ -141,9 +167,32 @@ def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
     return eigensystem_sla
 
 
+def general_solver(geometries, n, eigenvecs=False):
+    """
+    Return a function that diagonalizes the Hamiltonian for different geometries.
+    The parameters for the Hamiltonian are varied in a list of dictionaries where
+    multiple parameters can be varied simultaneously via extra_params.
+    """
+    def solver(index, extra_params):
+        system, f_params = geometries[index]
+
+        params = junction_parameters([-2, -2, -2], 2.5e-3)
+        params.update(extra_params)
+        ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params(**params))
+
+        if not eigenvecs:
+            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
+            evecs = []
+        else:
+            evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
+
+        return evals, evecs
+    return solver
+
+
 def sort_eigen(ev):
     """
-    Sort eigenvectors and eigenvalues using numpy methods.
+    Sort eigenvectors and eigenvalues.
     """
     evals, evecs = ev
     idx = np.argsort(evals)

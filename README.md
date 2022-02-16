@@ -20,9 +20,11 @@ It is important to mention that:
 * The cavity has spin orbit interaction.
 
 The parameters of the system are:
-$$
+
+$
 B_x = 0.8 [meV], \quad \Delta=0.5[meV], \quad \alpha = 0.4[eV A].
-$$
+$
+
 The chemical potential of the nanowires and the cavity and the phase differences between the wires are varied over the simulations.
 
 ## Geometrical dependence
