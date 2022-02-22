@@ -32,6 +32,13 @@ The role of each set of gates and the range of voltages used to operate the devi
 
 \section{Majorana bound states}
 
+\begin{figure}[h!!]
+\centering
+  \includegraphics[width=\linewidth]{figures/majorana_intro.pdf}
+  \caption{Simulations of a Majorana nanowire as described in Eq. \eqref{eq:ham_maj}. The following parameters will be used in all simulations:  $\Delta=0.5$[meV], $\alpha=0.3$[eV A], and $t=\hbar^2/2m^*$ where $m^*=0.023 m_e$. Each simulated nanowire has length $L=130*a$ and width $W=7*a$ where $a=10$[nm] is the lattice constant size. (a) Topological phase transition as a function of Zeeman field $B_x$. Majorana zero-energy state (red) sticks to zero after crossing the critical field. (b)  Transverse bands along the translational invariant direction with $\Delta=0$. The chemical potential is tunned to the bottom of each band (red dashed lines) to create Majoranas. (c) Majorana wavefunctions for the lowest three bands.}
+  \label{fig:rectangular_cavity}
+\end{figure}
+
 \textit{MBS emerge as the non-local degenerate ground state of a topological superconductor.}
 Under the appropriate conditions, a spinless one-dimensional $p$-wave superconductor contains two zero-energy excitations that are exponentially localised at the edges of the system. 
 Together, these two zero-energy modes encode a single fermionic mode that can be empty or occupied, 
@@ -70,7 +77,7 @@ In the presence of multiple MBS pairs, each parity subspace can be used as a com
 %However, creating such material combination 
 \textit{MBS can be realised in quasi one-dimensional systems defined on two-dimensional electron gases (2DEGs), or semiconducting nanowires, with strong spin-orbit and in proximity to a superconductor.}
 The Hamiltonian that realises a Majorana nanowire is,
-\begin{equation}
+\begin{equation}\label{eq:ham_maj}
 \mathcal{H} = \sum_k \Psi_k^\dagger H(k) \Psi_k  ,\quad H(k) =  \left[ \frac{|\mathbf{k}|^2}{2 m^*} - \mu + \alpha(k_x \sigma_y - k_y \sigma_x) \right] \tau_z + B_x \sigma_x  + \Delta \tau_x.
 \end{equation}
 Here, $\Psi_k^\dagger = (f_{k\uparrow}^\dagger, f_{k\downarrow}^\dagger, f_{k\uparrow} f_{k\downarrow})^T$ are the Nambu spinors in $k$ space, $\mu$ is the chemical potential, $\mathbf{k}$ is the 2D wave-vector, $\alpha$ is the spin orbit interaction, $B_x$ is the Zeeman field, $\Delta$ is the superconducting gap, and $\sigma$ and $\tau$ are Pauli matrices for the spin and particle-hole basis.
