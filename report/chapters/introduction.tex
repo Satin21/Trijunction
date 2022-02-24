@@ -32,6 +32,13 @@ The role of each set of gates and the range of voltages used to operate the devi
 
 \section{Majorana bound states}
 
+\begin{figure}[h!!]
+\centering
+  \includegraphics[width=\linewidth]{figures/majorana_intro.pdf}
+  \caption{Simulations of a Majorana nanowire as described in Eq. \eqref{eq:ham_maj}. The following parameters will be used in all simulations:  $\Delta=0.5$[meV], $\alpha=0.3$[eV A], and $t=\hbar^2/2m^*$ where $m^*=0.023 m_e$. Each simulated nanowire has length $L=130*a$ and width $W=7*a$ where $a=10$[nm] is the lattice constant size. (a) Topological phase transition as a function of Zeeman field $B_x$. Majorana zero-energy state (red) sticks to zero after crossing the critical field. (b)  Transverse bands along the translational invariant direction with $\Delta=0$. The chemical potential is tunned to the bottom of each band (red dashed lines) to create Majoranas. (c) Majorana wavefunctions for the lowest three bands.}
+  \label{fig:rectangular_cavity}
+\end{figure}
+
 \textit{MBS emerge as the non-local degenerate ground state of a topological superconductor.}
 Under the appropriate conditions, a spinless one-dimensional $p$-wave superconductor contains two zero-energy excitations that are exponentially localised at the edges of the system. 
 Together, these two zero-energy modes encode a single fermionic mode that can be empty or occupied, 
@@ -61,6 +68,26 @@ In the presence of multiple MBS pairs, each parity subspace can be used as a com
 \ket{\Psi} \rightarrow U(t)\ket{\Psi}, \quad U(t) = \exp(iH_{pair} t).
 \end{equation}
 
+\section{Majorana bound states in a trijunction}
+
+\textit{There are two main approaches for MBS quantum computation: braiding and joint parity measurements.}
+Braiding was initially proposed as moving MBS around each other in gate defined nanowire networks\cite{Alicea2011}. 
+However, this method requires high degree of control and is highly susceptible to thermal errors\cite{Pedrocchi2015}.
+On the other hand, joint parity measurements coupling multiple pairs of MBS\cite{Plugge2017} by using co-tunnelling processes between different MBS on superconducting islands.
+These methods do not rely on geometrical effects, and are often discussed in terms of a phenomenological Hamiltonian.
+
+\textit{In a trijunction, demonstration of the simplest non-trivial Majorana evolution experiment can be done.}
+In order to create a Majorana qubit, three or more MBS with precisely controlled interactions are required.
+The interaction between different MBS pairs is mediated by the cavity modes, which crucially depends on the nanowires positions and the cavity geometry.
+By controlling the coupling of each pair via a DC voltage pulse sequence, one determines the evolution of the MBS.
+Initial studies\cite{Hell2016} have shown that MBS can connect via a semiconducting cavity in a fork-like geometry.
+
+\textit{However, design and operation of a trijunction are non-trivial tasks.}
+Simultaneous tuning of gate voltages and relative phase difference is required to optimally operate a trijunction.
+Selection of the MBS pair and cavity modes is realised by electrostatic gates controlling the potential on each region.
+Furthermore, relative phase differences between MBS modulates the coupling as in the fractional Josephson effect.
+The phase will be shifted by the presence of complex hopping terms and by the nanowires relative position.
+
 \section{Experimental platforms}
 
 %MBS were only in Kitaev's toy model until several proposals for realising them on solid-state devices appeared.
@@ -70,7 +97,7 @@ In the presence of multiple MBS pairs, each parity subspace can be used as a com
 %However, creating such material combination 
 \textit{MBS can be realised in quasi one-dimensional systems defined on two-dimensional electron gases (2DEGs), or semiconducting nanowires, with strong spin-orbit and in proximity to a superconductor.}
 The Hamiltonian that realises a Majorana nanowire is,
-\begin{equation}
+\begin{equation}\label{eq:ham_maj}
 \mathcal{H} = \sum_k \Psi_k^\dagger H(k) \Psi_k  ,\quad H(k) =  \left[ \frac{|\mathbf{k}|^2}{2 m^*} - \mu + \alpha(k_x \sigma_y - k_y \sigma_x) \right] \tau_z + B_x \sigma_x  + \Delta \tau_x.
 \end{equation}
 Here, $\Psi_k^\dagger = (f_{k\uparrow}^\dagger, f_{k\downarrow}^\dagger, f_{k\uparrow} f_{k\downarrow})^T$ are the Nambu spinors in $k$ space, $\mu$ is the chemical potential, $\mathbf{k}$ is the 2D wave-vector, $\alpha$ is the spin orbit interaction, $B_x$ is the Zeeman field, $\Delta$ is the superconducting gap, and $\sigma$ and $\tau$ are Pauli matrices for the spin and particle-hole basis.
@@ -130,26 +157,6 @@ Characterisation of Majorana nanowire is done via transport measurements that re
 Furthermore, gates have a non-local effect on the potential landscape that differs between experimental platforms.
 For example, nanowires have a partial superconducting coating that allows for the electric field to penetrate and control the semiconductor and superconductor weight of the wavefunction.
 In 2DEGs, on the contrary, the superconducting coat fully covers it, which screens electrostatic effects.
-
-\section{Majorana bound states in a trijunction}
-
-\textit{There are two main approaches for MBS quantum computation: braiding and joint parity measurements.}
-Braiding was initially proposed as moving MBS around each other in gate defined nanowire networks\cite{Alicea2011}. 
-However, this method requires high degree of control and is highly susceptible to thermal errors\cite{Pedrocchi2015}.
-On the other hand, joint parity measurements coupling multiple pairs of MBS\cite{Plugge2017} by using co-tunnelling processes between different MBS on superconducting islands.
-These methods do not rely on geometrical effects, and are often discussed in terms of a phenomenological Hamiltonian.
-
-\textit{In a trijunction, demonstration of the simplest non-trivial Majorana evolution experiment can be done.}
-In order to create a Majorana qubit, three or more MBS with precisely controlled interactions are required.
-The interaction between different MBS pairs is mediated by the cavity modes, which crucially depends on the nanowires positions and the cavity geometry.
-By controlling the coupling of each pair via a DC voltage pulse sequence, one determines the evolution of the MBS.
-Initial studies\cite{Hell2016} have shown that MBS can connect via a semiconducting cavity in a fork-like geometry.
-
-\textit{However, design and operation of a trijunction are non-trivial tasks.}
-Simultaneous tuning of gate voltages and relative phase difference is required to optimally operate a trijunction.
-Selection of the MBS pair and cavity modes is realised by electrostatic gates controlling the potential on each region.
-Furthermore, relative phase differences between MBS modulates the coupling as in the fractional Josephson effect.
-The phase will be shifted by the presence of complex hopping terms and by the nanowires relative position.
 
 
 %\begin{enumerate}
