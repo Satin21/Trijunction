@@ -3,15 +3,15 @@
 In this chapter we demonstrate that the coupling of three pairs of MBS in a trijuction is determined by the geometrical details of the central semiconducting cavity.
 For certain geometrical configurations, a MBS pair couples resonantly with successive cavity states as in the so-called \textit{resonant trapping}, while in other cases the coupling is mediated by individual non-overlapping levels.
 
-We simulate the pair coupling of three Majorana nanowires mediated by a semiconducting cavity using Kwant.
+We simulate the pair coupling of three Majorana nanowires mediated by a semiconducting cavity using Kwant\cite{Groth2014}.
 For each experiment, a pair of nanowires is set to host MBS in each sub band while the other nanowire is fully depleted.
 We consider the strong coupling regime where there are no tunnel barriers between the cavity and the nanowires.
 Furthermore, the phase difference between the selected nanowires is tuned such that the coupling is at a maximum.
-\textit{The coupling energy of each pair is extracted as the value of the lowest non-zero eigenvalue with respect to the cavity chemical potential}.
+The coupling energy of each pair is extracted as the value of the lowest non-zero eigenvalue with respect to the cavity chemical potential.
 
 The cavity chemical potential is varied in a range of $4$ meV around the first resonance for all cavities.
 In this range, there are multiple levels that couple resonantly with a given pair of MBS.
-\textit{In order to characterise the coupling, we extract the highest resonance peak for each geometry.}
+In order to characterise the coupling, we extract the highest resonance peak for each geometry.
 Then, we classify them according to their operational robustness, that is, height and width.
 
 \section{Quasi-one dimensional cavities}
@@ -138,26 +138,27 @@ At the bottom of the diagonal, one observes that the worst MBS couplings happen 
 The angle is changed in two triangular cavities, one circular cavity, and the Y-shaped cavity.
 The resulting coupling for each pair and geometry is shown in Fig. \ref{fig:angles_couplings}.
 
-\begin{figure}[h!]
+\begin{figure}
 \centering
-  \includegraphics[width=\linewidth]{figures/couplings_angles.pdf}
-  \caption{Angular dependence of the resonant coupling peaks for four geometries with angle dependence. The system was tuned to the lowest Majorana band.  Each one corresponds to a colorbar as depicted in (c). (a) Left-right MBS pair coupling. (b) Left-center MBS pair coupling. The area of the triangular cavities was $A=900$ $[a^2]$. The radius of the circular cavity is $R=250$ [nm]. The size of the Y-shaped cavity is similar to that of the triangular cavity.}
+  \includegraphics[width=0.78\linewidth]{figures/angles_height_width.pdf}
+  \caption{Angular dependence of the resonant coupling peaks for four geometries with angle dependence. The system was tuned to the lowest Majorana band. Peak height and width for (a, c) left-right MBS pair and (b, d) left-center MBS pair coupling. The area of the triangular cavities was $A=900$ $[a^2]$. The radius of the circular cavity is $R=250$ [nm]. The size of the Y-shaped cavity is similar to that of the triangular cavity.}
   \label{fig:angles_couplings}
 \end{figure}
 
 The triangular geometry shows a transition from the resonant trapping regime to the single resonance regime while maintaining an approximately constant peak height.
 One can observe that the peak height stays around the same value for a large range of angles in panel (a).
-This behaviour is present in both triangular geometries since the red and blue dots highly overlap.
-The width, on the other hand, is inversely proportional to the angle.
-For small angles, the width is the largest for 2D geometries, around $0.7$ meV.
-As the angle increase, the width decreases until it saturates around $0.3$ meV.
+This behaviour is present in both triangular geometries as one can observe the overlap between orange and blue dots.
+As expected, the position of the central lead does not influences the coupling of the left and right MBS.
+The width, shown in panel(c), shows a more complicated behaviour.
+Initially, it is significantly larger than any other system, but later it decreases.
+Around $\theta=\pi/4$, the width reaches $1$meV.
 
 In order to understand this behaviour, let us observe that for small angles the triangular cavity resembles a quasi-1D system.
-By cutting the edges of the stripe geometry, the wavefunction is concentrated towards the center such that it can be easily trapped between the left and right leads as observed in the blue curve of Fig. \ref{fig:triangle_transition} (a).
-As the angle increases, the resonant band splits into several sub bands that contain a few resonances each as observed in Fig. \ref{fig:triangle_transition} (b).
-If the angle increases further, these resonances fully split into individual levels, thus explaining the saturation found in Fig. \ref{fig:angles_couplings} (a).
+By cutting the edges of the stripe geometry, the wavefunction is concentrated towards the center such that it can be easily trapped between the left and right leads as observed in the blue curve of Fig. \ref{fig:triangle_transition} (b).
+As the angle increases, the resonant band splits into several sub bands that contain a few resonances each as observed in Fig. \ref{fig:triangle_transition} (a).
+If the angle increases further, these resonances fully split into individual levels, thus explaining the saturation found in Fig. \ref{fig:angles_couplings} (c).
 
-The coupling of the left and central MBS pair -on the contrary- is more complicated to analyse due to the high overlap between geometries as observed in Fig. \ref{fig:angles_couplings} (b).
+The coupling of the left and central MBS pair -on the contrary- is more complicated to analyse due to the high overlap between geometries as observed in Fig. \ref{fig:angles_couplings} (b) and (d).
 Couplings for both triangular geometries are around the same region in width and height for small angles.
 As the angle increases, the width of the configuration with central lead at the lower side (blue) increases, while the other configuration (red) decreases.
 
@@ -175,9 +176,9 @@ Nevertheless, resonant trapping is still present in the second configuration, bu
 \end{figure}
 
 For the remaining geometries, there is indeed a modulation for the left and right MBS pairs.
-However, the overall coupling remains smaller and narrower than the triangular case.
-Interestingly, the left and central MBS coupling for the Y-shaped cavity converges to a region around $(0.3 meV, 70 \mu eV)$ as the angle increases (see Fig. \ref{fig:angles_couplings} (b) green points).
-On the other hand, the behaviour of this pair in the circular cavity does not show a clear trend.
+The overall coupling is comparable to the triangular geometries, but the width is much smaller.
+Interestingly, the left and central MBS coupling for the Y-shaped cavity converges to a peak height of about $70$ meV as the angle increases (see Fig. \ref{fig:angles_couplings} (c) green points).
+The circular geometry shows that different angles enhance the coupling of different pairs as can be seen in the red lines.
 
 \subsection{Majorana sub bands}
 

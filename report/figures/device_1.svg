@@ -24,9 +24,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="0.29702911"
-     inkscape:cx="1001.5853"
-     inkscape:cy="678.38468"
+     inkscape:zoom="1.0003259"
+     inkscape:cx="684.27703"
+     inkscape:cy="149.4513"
      inkscape:window-width="1920"
      inkscape:window-height="1027"
      inkscape:window-x="1440"
@@ -19082,6 +19082,30 @@
                transform="matrix(1,0,0,-1,0,393.1225)"
                id="path48335" />
           </g>
+          <path
+             style="fill:none;stroke:#0379f6;stroke-width:1.41732283;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
+             d="m -98.232857,-335.80198 c 0,-325.5678 0,-326.27249 0,-326.27249"
+             id="path5154" />
+          <path
+             style="fill:none;stroke:#d37903;stroke-width:1.41732283;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 81.805885,-334.83556 c 0,-325.5678 0,-326.27249 0,-326.27249"
+             id="path5154-2" />
+          <path
+             style="fill:none;stroke:#d37903;stroke-width:1.41732283;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m -188.49093,-388.7099 c 325.5678,0 326.27249,0 326.27249,0"
+             id="path5154-2-7" />
+          <path
+             style="fill:none;stroke:#d37903;stroke-width:1.41732283;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 327.93481,-368.6709 c 325.5678,0 326.27249,0 326.27249,0"
+             id="path5154-2-7-7" />
+          <path
+             style="fill:none;stroke:#d37903;stroke-width:1.41732283;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 617.70149,-654.17685 c 0,325.56779 0,326.27248 0,326.27248"
+             id="path5154-2-7-1" />
+          <path
+             style="fill:none;stroke:#0379f6;stroke-width:1.41732283;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+             d="m 139.60076,-578.12547 c -325.56779,0 -326.27248,0 -326.27248,0"
+             id="path5154-3" />
         </g>
       </g>
     </g>
