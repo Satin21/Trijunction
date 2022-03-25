@@ -29,11 +29,10 @@ from Hamiltonian import discrete_system_coordinates, kwant_system, tight_binding
 
 mu = bands[0]
 # Set up system paramters
-thickness_GaAs = 6
+thickness_barrier = 4
 thickness_twoDEG = 4
-thickness_Al2O3 = 4
-thickness_gate = 2
-thickness_self_Al2O3 = 0
+thickness_gates = 6
+thickness_self_Al2O3 = 4
 
 meff = 0.023 * constants.m_e  # in Kg
 eV = 1.0
@@ -53,8 +52,9 @@ grid_spacing_GaAs = grid_spacing_normal
 grid_spacing_gate = grid_spacing_twoDEG
 grid_spacing = grid_spacing_twoDEG
 
-area = 600
-angle = 0.68
+# geometrical parameters
+area = 1200
+angle = 0.125*np.pi
 wire_width = 7
 gap = 4
 
@@ -72,6 +72,7 @@ total_width = 2*total_width
 # Set up gates
 gates = triangular_gates_2(area, angle, wire_width, tunnel_length, gap, extra_width)
 
+# Boundaries within Poisson region
 zmin = -0.5
 zmax = 0.5
 xmax = triangle_width
@@ -104,8 +105,8 @@ layout.add_layer(
 layout.add_layer(
     SimpleChargeLayer(
         "GaAs",
-        thickness_GaAs,
-        permittivity_GaAs,
+        thickness_barrier,
+        permittivity_Al2O3,
         grid_spacing_GaAs,
     )
 )
@@ -120,7 +121,7 @@ layout.add_layer(
     OverlappingGateLayer(
         vertex,
         np.hstack([list(gates[key].keys()) for key, _ in gates.items()]),
-        thickness_gate,
+        thickness_gates,
         thickness_self_Al2O3,
         permittivity_metal,
         grid_spacing_gate,
@@ -176,6 +177,7 @@ def potential(voltage_setup, offset=offset, grid_spacing=1):
     )
     return clean_potential
 
+
 def get_hamiltonian(voltage_setup, key_1, val_1, key_2, val_2, params, points):
     voltage_setup[key_1] = val_1
     voltage_setup[key_2] = val_2    
@@ -184,7 +186,7 @@ def get_hamiltonian(voltage_setup, key_1, val_1, key_2, val_2, params, points):
     ham_mat = trijunction.hamiltonian_submatrix(sparse=True,
                                                 params=f_params_potential(potential=f_pot,
                                                                           params=params))
-    
+
     return ham_mat, potential_at_gates(f_pot, points)
 
 def potential_at_gates(f_pot, points):
@@ -194,13 +196,15 @@ def potential_at_gates(f_pot, points):
         data.append(f_pot(x, y))
     return np.array(data)
 
-def solver_electrostatics(tj_system, voltage_setup, pair, key, n, eigenvecs):
+def solver_electrostatics(tj_system, voltage_setup, key, n, eigenvecs):
+    """
 
+    """
     params = junction_parameters(m_nw=np.array([mu, mu, mu]), m_qd=0)
-    params.update(phase(pair))
 
-    def eigensystem_sla(val):
-        
+    def eigensystem_sla(val, extra_params):
+
+        params.update(extra_params)
         system, f_params_potential = tj_system
 
         voltage_setup[key] = val
@@ -216,4 +220,4 @@ def solver_electrostatics(tj_system, voltage_setup, pair, key, n, eigenvecs):
 
         return evals, evecs
 
-    return eigensystem_sla 
+    return eigensystem_sla

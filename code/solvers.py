@@ -3,105 +3,8 @@ import kwant.continuum
 import tinyarray as ta
 import numpy as np
 import scipy.sparse.linalg as sla
-from scipy.constants import electron_mass, hbar
-
-# data extracted from sub_bands.ipynb
-# Zeeman fields for the topological transition at each sub-band
 
 
-# Bottom of each transverse band
-bands = [
-    0.0023960204649275973,
-    0.009605416498312178,
-    0.020395040147213304,
-    0.03312226901926766,
-    0.045849497891322026,
-    0.056639121540223145,
-    0.06384851757360771
-]
-
-b = 0.001
-
-phi12 = 1.23232323*np.pi
-phi13 = 0.02020202*np.pi
-phi23 = 1.97979798*np.pi
-phis = np.array([1.23232323, 0.02020202, 1.97979798])*np.pi
-
-def finite_coupling_parameters(index, sigma=0):
-    mu = bands[index]
-    params_12 = {'mus_nw': np.array([mu, mu, -2]), 'phi1': phi12, 'sigma': sigma}
-    params_13 = {'mus_nw': np.array([mu, -2, mu]), 'phi2': phi13, 'sigma': sigma}
-    params_23 = {'mus_nw': np.array([-2, mu, mu]), 'phi2': phi23, 'sigma': sigma}
-    params = [params_12, params_13, params_23]
-    return params
-
-
-def phase(pair):
-
-    if pair == 0:
-        key_phi = 'phi1'
-    else:
-        key_phi = 'phi2'
-
-    extra_params = {key_phi: phis[pair]}
-    return extra_params
-
-
-def phase_params(key, param, band_index=0, n=100):
-    wires = finite_coupling_parameters(band_index)
-    phases = np.linspace(0, 2*np.pi, n)
-    params = []
-    for phase in phases:
-        i = 0
-        for wire in wires:
-            if i < 1:
-                updated_params = {key: param, 'phi1': phase, 'phi2': 0}
-            else:
-                updated_params = {key: param, 'phi2': phase, 'phi1': 0}
-            params.append(wire | updated_params)
-            i += 1
-    return params
-
-
-# helper functions
-def lead_parameters(m_nw, m_qd, B):
-    a = 10E-9
-    t = hbar**2/(2*0.023*electron_mass)*(6.24E18)
-    alpha = 0.4E-10
-    Delta = 5E-3
-    parameters = dict(mu_nw_1=m_nw[0],
-                      mu_nw_2=m_nw[1],
-                      mu_nw_3=m_nw[2],
-                      mu_qd=m_qd,
-                      t=t,
-                      Delta=Delta,
-                      alpha=alpha,
-                      B_x=B,
-                      phi=0,
-                      a=a)
-    return parameters
-
-
-def junction_parameters(m_nw, m_qd, bx=b):
-    """
-    Typical parameters
-    """
-
-    a = 10E-9
-    t = hbar**2/(2*0.023*electron_mass)*(6.24E18)
-    alpha = 0.3E-10
-    Delta = 5E-4
-    parameters = dict(mus_nw=m_nw,
-                      mu_qd=m_qd,
-                      t=t,
-                      Delta=Delta,
-                      alpha=alpha,
-                      B_x=bx,
-                      phi1=0,
-                      phi2=0,
-                      sigma=0,
-                      a=a)
-    return parameters
 
 
 def get_potential(potential):
@@ -115,14 +18,25 @@ def solver(geometries, n, key, eigenvecs=False):
     Return a function that diagonalizes the Hamiltonian for different geometries.
     The parameters for the Hamiltonian are set from the beginning, and only one
     parameter is varied via key and mu.
+
+    Paramters:
+    ----------
+        geometries: array where each element is (kwant.Builder, paramters_function(x, y))
+        n: number of eigenvalues to be extracted
+        key: single parameter to be varied
+        eigenvecs: bool telling if we extract or not eigenvectors
+
+    Returns:
+    --------
+        eigensystem_sla: function that returns eigenvalues and eigenvectors per geometry per mu
     """
     def eigensystem_sla(geometry_index, mu, extra_params):
+
+        system, params_func = geometries[geometry_index]
 
         params = junction_parameters(m_nw=np.array([-2, -2, -2]), m_qd=0)
         params.update(extra_params)
         params[key] = mu
-
-        system, params_func = geometries[geometry_index]
 
         ham_mat = system.hamiltonian_submatrix(sparse=True, params=params_func(**params))
 
@@ -142,9 +56,25 @@ def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
     Return a function that diagonalizes the Hamiltonian for a single geometry.
     The potential is defined as a list of dictionaries, each contains the
     potential for every site in the system.
+
+    Parameters:
+    -----------
+        tj_system: pair (kwant.Builder, parameters_function(x,y))
+        n: number of eigenvalues to be extracted
+        potentials: list of dictionaries containing the potential configuration for each voltage
+
+    Returns:
+    --------
+        
     """
 
     def eigensystem_sla(potential_index, voltage, pair):
+        """
+        Paramters:
+        ----------
+            potential_index: int that tells what element to extract from potentials
+            voltage: voltage associated 
+        """
 
         mu = bands[band]
         params = junction_parameters(m_nw=np.array([mu, mu, mu]), m_qd=0)
@@ -167,18 +97,38 @@ def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
     return eigensystem_sla
 
 
-def general_solver(geometries, n, eigenvecs=False):
+def general_solver(geometries, n, base_parameters, eigenvecs=False):
     """
     Return a function that diagonalizes the Hamiltonian for different geometries.
     The parameters for the Hamiltonian are varied in a list of dictionaries where
     multiple parameters can be varied simultaneously via extra_params.
+
+    Parameters:
+    -----------
+        geometries: array where each element is (kwant.Builder, paramters_function(x, y))
+        n: number of eigenvalues to be extracted
+        base_paramters: set of paramters that won't be changed during simulations
+        eigenvecs: bool telling if we extract or not eigenvectors
+
+    Returns:
+    --------
+        solver: solver function that computes eigenvalues and eigenvectors
     """
     def solver(index, extra_params):
+        """
+        Parameters:
+        -----------
+            index: geometry index
+            extra_params: parameters to be varied in a given geometry
+        Returns:
+        --------
+            evals: eigenvalues
+            evecs: eigenvectors if requested, empty array otherwise
+        """
         system, f_params = geometries[index]
 
-        params = junction_parameters([-2, -2, -2], 2.5e-3)
-        params.update(extra_params)
-        ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params(**params))
+        base_parameters.update(extra_params)
+        ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params(**base_parameters))
 
         if not eigenvecs:
             evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))

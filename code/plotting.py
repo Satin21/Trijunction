@@ -23,18 +23,20 @@ def plot_potential_at_barriers(
     plt.show()
 
 
-def plot_gates(gates, scale=10):
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
+def plot_gates(gates, scale=10, address='gates.pdf', **kwargs):
+    fig, ax = plt.subplots(**kwargs)
+
     types_of_gates = list(gates.keys())
     colors = ['b', 'g', 'r']
+    labels = ['Plunger gate', 'Screen gates', 'Barrier gates']
+
     i = 0
     for key in types_of_gates:
 
         for _, gate in gates[key].items():
             gate = scale*gate
-            ax.plot(gate[:, 0], gate[:, 1], c=colors[i], label=key)
-            ax.plot([gate[0, 0], gate[-1, 0]], [gate[0, 1], gate[-1, 1]], c=colors[i], label=key)
+            ax.plot(gate[:, 0], gate[:, 1], c=colors[i], label=labels[i], linewidth=2)
+            ax.plot([gate[0, 0], gate[-1, 0]], [gate[0, 1], gate[-1, 1]], c=colors[i], linewidth=2)
         i += 1
 
     ax.set_ylabel('y [nm]')
@@ -43,8 +45,9 @@ def plot_gates(gates, scale=10):
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys(), loc='upper left')
-    ax.set_title('Planar gates configuration')
-    plt.show()
+    plt.savefig(address, bbox_inches='tight')
+
+    return fig
 
 
 def plot_couplings(
@@ -57,7 +60,8 @@ def plot_couplings(
     units,
     n_cols,
     n_rows,
-    figsize=(18, 12)
+    figsize=(18, 12),
+    ylim=150
 ):
     """
     """
@@ -78,7 +82,7 @@ def plot_couplings(
         couplings = 1e6*geometries_couplings[geometry][pair]
         ax.plot(mus_qd_units, couplings, color=color, label=label)
         ax.vlines(x=mus_qd_units[peaks], ymin=-1, ymax=200, linewidth=0.5, color='gray')
-        ax.set_ylim(0, 170)
+        ax.set_ylim(0, ylim)
         ax.set_title(ax_title)
         ax.set_xlabel(r'$\mu_{cavity} [meV]$')
         ax.set_ylabel(r'E [$\mu$eV]')
@@ -213,3 +217,26 @@ def multiline(xs, ys, c, ax=None, **kwargs):
     ax.add_collection(lc)
     ax.autoscale()
     return lc
+
+
+def plot_potential_lines(figsize=(15, 5), potential=[], cmap="gist_heat_r", scale=1, **kwargs):
+
+    total_potential = []
+    for element in potential:
+        coordinates = np.array(list(element.keys()))
+        values = np.array(list(element.values()))
+        total_potential.append(values)
+
+    x = scale*coordinates[:, 0]
+    y = scale*coordinates[:, 1]
+    width = np.unique(x).shape[0]
+    X = x.reshape(width, -1)
+    Y = y.reshape(width, -1)
+    Z = sum(total_potential).reshape(width, -1)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    cont = ax.contour(X, Y, 1e3*Z, cmap=cmap, levels=100, **kwargs)
+    cbar = fig.colorbar(cont, ax=ax, format="%.2f")
+    cbar.set_label(r'$V_{eqipot}$ [mV]')
+    ax.set_xlabel("X [nm]")
+    ax.set_ylabel("Y [nm]")

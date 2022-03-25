@@ -82,7 +82,7 @@ def finite_system(**geometry):
         center = W - w_v/2
         centers = [center, -center]
         connection = np.tan(angle)*(w/2)
-        start = [0, L]
+        start = [0, L-diag_length-shift_radius]
 
     elif shape == 'y':
         A = geometry['A']  # triangles defined by the total area
@@ -91,19 +91,21 @@ def finite_system(**geometry):
 
         L = np.sqrt(A*np.tan(angle))
         W = np.sqrt(np.abs(A/np.tan(angle)))
-        
+
         diag_length = np.sqrt(L**2 + W**2)
-        L += diag_length
 
         w_v = geometry['w_v']
-        difference = W - w_v
+        difference = W - w_v/np.cos(np.pi/2-angle)
         smaller_area = np.tan(angle)*difference**2
         l_w = np.sqrt(smaller_area*np.tan(angle))
+        
+        circle_center = [0, l_w + (L-l_w)/2]
+        connection = (L-l_w)
+        L += diag_length
 
-        center = W - w_v/2
+        center = W
         centers = [center, -center]
-        connection = 0
-        start = [0, L+a]
+        start = circle_center
 
     elif shape == 'rectangle':
         L = geometry['L']
@@ -156,15 +158,15 @@ def finite_system(**geometry):
                 if not (np.tan(angle)*x <= -(y-l_w) and np.tan(angle)*x >= (y-l_w)):
                     return mu
         return v_shape
-    
+
     def y(mu):
         def y_shape(x, y):
-            if x**2 + (y-L+diag_length)**2 <= radius**2:
+            if x**2 + (y-circle_center[1])**2 <= radius**2:
                 return mu
             elif np.tan(angle)*x <= -(y-L+diag_length) and np.tan(angle)*x >= (y-L+diag_length):
                 if not (np.tan(angle)*x <= -(y-l_w) and np.tan(angle)*x >= (y-l_w)):
                     return mu
-            elif (y-L+diag_length) <= diag_length and np.abs(x) <= w/2:
+            elif (y-L+diag_length) <= diag_length and np.abs(x) <= w_v/2:
                 return mu
         return y_shape
 
@@ -186,7 +188,13 @@ def finite_system(**geometry):
 
         def system(site):
             x, y = site. pos
-            if 0 <= y < L-connection:
+            
+            if shape != 'y':
+                condition = 0 <= y < L-connection
+            else:
+                condition = x**2 + (y-circle_center[1])**2 <= diag_length**2
+
+            if condition:
                 f = scatter()
             else:
                 f = wires()
@@ -210,7 +218,13 @@ def finite_system(**geometry):
     def fill_system(mu_qd, mus_nw, sigma=0):
 
         def system(x, y):
-            if 0 <= y < L-connection:
+
+            if shape != 'y':
+                condition = 0 <= y < L-connection
+            else:
+                condition = x**2 + (y-circle_center[1])**2 <= diag_length**2
+
+            if condition:
                 f = scatter(mu=mu_qd)
                 noise = np.random.normal(0, sigma)
             else:
@@ -302,7 +316,7 @@ def circular_junction(**geometry):
             elif L >= y >= R and -w/2 <= x <= w/2:
                 return mus_nw[2]
         return shape
-    
+
         def shape(x, y):
             if x**2 + (y-L+diag_length)**2 <= radius**2:
                 return mu

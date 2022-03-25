@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, peak_widths
 import matplotlib.animation as animation
 import sys
 import tinyarray as ta
@@ -12,7 +12,9 @@ def get_potential(potential):
     return f
 
 def find_cuts(potentials, cut=10e-9, scale=1):
-
+    """
+    
+    """
     flatten_potentials = np.array(list(potentials.values()))
     potential_cuts = []
 
@@ -32,7 +34,7 @@ def find_cuts(potentials, cut=10e-9, scale=1):
 
     return X[:, 0], potential_cuts
 
-
+"""
 def check_level_smooth(level):
 
     diffs = np.abs(np.diff(level))
@@ -54,57 +56,69 @@ def check_level_smooth_v2(level):
         level[indices] = lowest_value
 
     return level
+"""
 
-
-def find_resonances(energies, n_peaks, n=6, i=1, sign=1, **kwargs):
+def find_resonances(energies, n, i=1, sign=1, **kwargs):
     """
     Extract peaks from np.abs(lowest) mode in energies.
-    Cy choosing 'sign' we extract either peaks or dips.
+    By choosing 'sign' we extract either peaks or dips.
     Parameters:
     -----------
     """
     levels = energies.T
-    ground_state = check_level_smooth(check_level_smooth_v2(levels[n//2 + i]))
-    crossings, _ = find_peaks(sign*np.abs(ground_state), **kwargs)
+    ground_state = levels[n//2 + i]
+    peaks, properties = find_peaks(sign*np.abs(ground_state), **kwargs)
 
-    return crossings[:n_peaks], ground_state
+    return ground_state, peaks
 
 
-def coupling_data(data, n_peaks=-1, n=6, i=1, eigenvecs=False, **kwargs):
+def coupling_data(data, n=6, i=1, eigenvecs=False, rel_height=0.5, **kwargs):
     """
-    Extract data associated to the first excited level, i.e. coupled majoranas,
-    for each connection in the trijunction.
+    Extract data associated to the first excited level for each pair of MBS in the trijunction.
+    Parameters:
+    -----------
+        data: result from dask.dask_bag simulation
+        n_peaks: number of peaks to extract
+        n: number of eigenvalues extracted
+        i: shift with respect to the central eigenvalue
+        eigenvecs: bool telling if eigenvectors where extracted during dask calculations
+
+    Returns:
+    -------
+        couplings: np.array of size (3, ) containing eigenvalue n//2+i for each pair
+        wfs: corresponding wavefunctions
     """
     dat_13, dat_12, dat_23 = separate_data_wires(data)
 
     en_13, wfs_13 = separate_energies_wfs(dat_13)
     en_12, wfs_12 = separate_energies_wfs(dat_12)
     en_23, wfs_23 = separate_energies_wfs(dat_23)
+    spectra = [en_13, en_12, en_23]
 
-    peaks_13, coupling_13 = find_resonances(en_13, n_peaks=n_peaks, i=i, **kwargs)
-    peaks_12, coupling_12 = find_resonances(en_12, n_peaks=n_peaks, i=i, **kwargs)
-    peaks_23, coupling_23 = find_resonances(en_23, n_peaks=n_peaks, i=i, **kwargs)
+    coupling_13, peaks_13 = find_resonances(en_13, n=n, i=i, **kwargs)
+    coupling_12, peaks_12 = find_resonances(en_12, n=n, i=i, **kwargs)
+    coupling_23, peaks_23 = find_resonances(en_23, n=n, i=i, **kwargs)
     couplings = [coupling_13, coupling_12, coupling_23]
-
-    peaks_13 = check_peaks(peaks_13, coupling_13, n_peaks=n_peaks)
-    peaks_12 = check_peaks(peaks_12, coupling_12, n_peaks=n_peaks)
-    peaks_23 = check_peaks(peaks_23, coupling_23, n_peaks=n_peaks)
     peaks = [peaks_13, peaks_12, peaks_23]
+
+    widths_13 = peak_widths(peaks=peaks_13, x=coupling_13, rel_height=rel_height)
+    widths_12 = peak_widths(peaks=peaks_12, x=coupling_12, rel_height=rel_height)
+    widths_23 = peak_widths(peaks=peaks_23, x=coupling_23, rel_height=rel_height)
+    widths = [widths_13, widths_12, widths_23]
 
     if not eigenvecs:
         wfs = []
     else:
         wfs = [wfs_13[:, n//2+1], wfs_12[:, n//2+1], wfs_23[:, n//2+1]]
 
-    return couplings, wfs, peaks
+    return spectra, couplings, wfs, peaks, widths
 
 
+"""
 def check_peaks(peaks, coupling, n_peaks):
-    """
-    Check if the number of peaks is the correct, otherwise return random positions.
-    This happens when the coupling is negligible.
-    """
 
+    Check if the number of peaks is the correct, otherwise return random positions.
+    This happens when the coupling is negligible, e.g. for higher nanowire bands.
     if len(peaks) == n_peaks:
         peaks = peaks
     #elif 0 < len(peaks) < n_peaks:
@@ -114,13 +128,13 @@ def check_peaks(peaks, coupling, n_peaks):
         peaks = np.arange(n_peaks, dtype=int)
 
     return peaks
+"""
 
 
 def separate_data_wires(data):
     """
     data is formatted such that the first dimension corresponds to each of
-    three possible tunnel configurations.
-    This functions separates each case in a different array.
+    three MBS pairs. This functions separates each case in a different array.
     """
     len_data = int(len(data)/3)
     w12 = []
@@ -142,8 +156,8 @@ def separate_data_wires(data):
 
 def separate_energies_wfs(data):
     """
-    data is formated such that the first index represents a parameter value,
-    and the second index separates energies and wavefunctions.
+    Applied to data of a single MBS pair. The data is formated such that the
+    first index represents a parameter value, and the second index separates energies and wavefunctions.
     """
     ens = []
     wfs = []
@@ -167,6 +181,9 @@ def spectra_data(data):
 
 
 def separate_data_geometries(data, n_geometries):
+    """
+    Separate output dask.dask_bag data for each geometry.
+    """
     separated_data = []
     step = int(len(data)/n_geometries)
     for i in range(n_geometries):
