@@ -27,6 +27,7 @@ from layout import (
 )
 from Hamiltonian import discrete_system_coordinates, kwant_system, tight_binding_Hamiltonian
 
+## Geometry
 
 mu = pm.bands[0]
 a = 10e-9
@@ -35,15 +36,14 @@ R = 60
 r = 51
 gap = 4
 tunel_length = 5
-wire_width = 13
-y_shift = tunel_length + gap
+wire_width = 21
 
 zmin = -0.5
 zmax = 0.5
 xmax = R + 2*gap + 2*wire_width
 xmin = -xmax
 ymin = 0
-ymax = R + gap +tunel_length + y_shift
+ymax = R + gap + tunel_length
 boundaries = [xmin, xmax, ymin, ymax, zmin, zmax]
 total_width = 2*xmax
 total_length = ymax
@@ -127,7 +127,7 @@ crds = site_coords[:, [0, 1]]
 offset = crds[0]%grid_spacing_twoDEG
 
 a = 10e-9
-center = R - (R-r)/2
+center = R - wire_width/2
 centers = [center*a, -center*a]
 geometry = {
     "l": 130*a,
@@ -140,3 +140,66 @@ geometry = {
     "centers": centers
 }
 
+trijunction, f_params, f_params_potential = tj.finite_system(**geometry)
+trijunction = trijunction.finalized()
+
+
+# Functions
+
+def potential(voltage_setup, offset=offset, grid_spacing=1):
+    """
+    Use Poisson system to calculate the potential.
+    """
+    charges = {}
+    clean_potential = gate_potential(
+        poisson_system,
+        linear_problem,
+        site_coords[:, [0, 1]],
+        site_indices,
+        voltage_setup,
+        charges,
+        offset,
+        grid_spacing
+    )
+    return clean_potential
+
+
+
+def solver_electrostatics(tj_system, voltage_setup, n, params, eigenvecs=False):
+
+
+    def eigensystem_sla(voltage_params, extra_params):
+
+        params.update(extra_params)
+        voltage_setup.update(voltage_params)
+
+        system, f_params_potential = tj_system
+
+        f_potential = tl.get_potential(potential(voltage_setup=voltage_setup, grid_spacing=10e-9))
+        f_params = f_params_potential(potential=f_potential, params=params)
+        ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params)
+
+        if eigenvecs:
+            evals, evecs = sl.sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
+        else:
+            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
+            evecs = []
+
+        return evals, evecs
+
+    return eigensystem_sla
+
+
+def get_hamiltonian(voltage_setup, extra_params, params, points):
+    """
+    
+    """
+
+    voltage_setup.update(extra_params)
+    f_pot = get_potential(potential(voltage_setup=voltage_setup, grid_spacing=10e-9))
+
+    ham_mat = trijunction.hamiltonian_submatrix(sparse=True,
+                                                params=f_params_potential(potential=f_pot,
+                                                                          params=params))
+
+    return ham_mat, potential_at_gates(f_pot, points)
