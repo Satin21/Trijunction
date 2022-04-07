@@ -69,55 +69,62 @@ grid_spacing_gate = grid_spacing_twoDEG
 
 gates_name, gates_vertex = gt.ring_gates(R, wire_width, gap, tunel_length)
 
-layout = Layout(total_width,
-                total_length,
-                grid_width_air=grid_spacing_air,
-                margin=(50, 50, 50),
-                shift=(0, total_length/2, 0))
 
-layout.add_layer(
-    TwoDEGLayer(
-        "twoDEG",
-        thickness_twoDEG,
-        permittivity_twoDEG,
-        grid_spacing_twoDEG,
-        add_to_previous_layer=False,
-        fix_overlap=False,
-        z_bottom=None
-    ),
-    center=True,
-)
+def structure_2deg(total_width, total_length, gates):
+    """
+    Compute electrotatic potential induced by a set of gates on a rectangular system.
+    """
+    layout = Layout(total_width,
+                    total_length,
+                    grid_width_air=grid_spacing_air,
+                    margin=(50, 50, 50),
+                    shift=(0, total_length/2, 0))
 
-height = thickness_twoDEG / 2
-
-layout.add_layer(
-    SimpleChargeLayer(
-        "Al2O3",
-        thickness_barrier,
-        permittivity_Al2O3,
-        grid_spacing_barrier,
-        add_to_previous_layer=False,
-        fix_overlap=False,
-        z_bottom=None
+    layout.add_layer(
+        TwoDEGLayer(
+            "twoDEG",
+            thickness_twoDEG,
+            permittivity_twoDEG,
+            grid_spacing_twoDEG,
+            add_to_previous_layer=False,
+            fix_overlap=False,
+            z_bottom=None
+        ),
+        center=True,
     )
-)
 
-height += thickness_barrier
+    height = thickness_twoDEG / 2
 
-layout.add_layer(OverlappingGateLayer(thickness_gates,
-                                      permittivity_metal,
-                                      grid_spacing_gate,
-                                      layer_name=gates_name,
-                                      gate_objects=gates_vertex,
-                                      remove_points=False,
-                                      add_to_previous_layer=False,
-                                      z_bottom=height,
-                                      fix_overlap=True
-                                     )
-            )
+    layout.add_layer(
+        SimpleChargeLayer(
+            "Al2O3",
+            thickness_barrier,
+            permittivity_Al2O3,
+            grid_spacing_barrier,
+            add_to_previous_layer=False,
+            fix_overlap=False,
+            z_bottom=None
+        )
+    )
 
-poisson_system = layout.build()
-linear_problem = linear_problem_instance(poisson_system)
+    height += thickness_barrier
+
+    layout.add_layer(OverlappingGateLayer(thickness_gates,
+                                          permittivity_metal,
+                                          grid_spacing_gate,
+                                          layer_name=gates_name,
+                                          gate_objects=gates_vertex,
+                                          remove_points=False,
+                                          add_to_previous_layer=False,
+                                          z_bottom=height,
+                                          fix_overlap=True
+                                         )
+                )
+
+    poisson_system = layout.build()
+    linear_problem = linear_problem_instance(poisson_system)
+
+    return poisson_system, linear_problem
 
 site_coords, site_indices = discrete_system_coordinates(
     poisson_system, [('mixed', 'twoDEG')], boundaries=boundaries

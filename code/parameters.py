@@ -26,9 +26,9 @@ phis = np.array([1.23232323, 0.02020202, 1.97979798])*np.pi
 
 def pairs_parameters(index, phis=[phi13, phi12, phi23], sigma=0):
     mu = bands[index]
-    params_12 = {'mus_nw': np.array([mu, mu, -2]), 'phi1': phis[0], 'phi2': 0, 'sigma': sigma}
-    params_13 = {'mus_nw': np.array([mu, -2, mu]), 'phi2': phis[1], 'phi1': 0, 'sigma': sigma}
-    params_23 = {'mus_nw': np.array([-2, mu, mu]), 'phi2': phis[2], 'phi1': 0, 'sigma': sigma}
+    params_12 = {'mus_nw': np.array([mu, mu, -2]), 'phi1': phis[0], 'phi2': 0, 'pair': 'LR'}
+    params_13 = {'mus_nw': np.array([mu, -2, mu]), 'phi2': phis[1], 'phi1': 0, 'pair': 'CR'}
+    params_23 = {'mus_nw': np.array([-2, mu, mu]), 'phi2': phis[2], 'phi1': 0, 'pair': 'LC'}
     params = [params_12, params_13, params_23]
     return params
 
@@ -44,7 +44,7 @@ def phase(pair, phis=phis):
     return extra_params
 
 
-def phase_params(band_index=0, n=100):
+def phase_params(offset, band_index=0, n=100):
     """
     """
     wires = pairs_parameters(band_index)
@@ -56,16 +56,16 @@ def phase_params(band_index=0, n=100):
 
         for wire in wires:
             if i < 1:
-                updated_params = {'phi1': phase, 'phi2': 0}
+                updated_params = {'phi1': phase, 'phi2': 0, 'offset': offset}
             else:
-                updated_params = {'phi2': phase, 'phi1': 0}
+                updated_params = {'phi2': phase, 'phi1': 0, 'offset': offset}
             params.append(wire | updated_params)
             i += 1
 
     return params
 
 
-def single_parameter(key, vals, max_phis):
+def single_parameter(key, vals, max_phis, offset):
     """
     Make an array of parameters for three pairs of nanowires with the phase
     differences tunned to a given value.
@@ -83,8 +83,8 @@ def single_parameter(key, vals, max_phis):
     wires = pairs_parameters(index=0, phis=np.pi*max_phis)
     for val in vals:
         for wire in wires:
-            dic = {key: val}
-            params.append(wire|dic)
+            dic = {key: val, 'offset': offset}
+            params.append(wire | dic)
     return params
 
 
