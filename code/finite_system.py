@@ -52,7 +52,7 @@ def finite_system(**geometry):
 
         return wires_shape
 
-    def fill_system(mu_qd, mus_nw):
+    def fill_system(mus_nw, scattering_potential={}):
         """
         Make a spatillay dependent function that has flat potential in the wires region,
         and the potential in the cavity is taken as an input parameter `shape`.
@@ -61,15 +61,13 @@ def finite_system(**geometry):
         def system(x, y):
 
             if -W / 2 < x < W / 2 and 0 <= y < L:
-                f = get_potential
+                f = get_potential(scattering_potential)
             else:
                 f = wires(mu=mus_nw)
             return f(x, y)
 
         return system
 
-    def get_potential():
-        pass
 
     # def side_geometry(potential, pair, offset):
     #
@@ -87,11 +85,8 @@ def finite_system(**geometry):
         Delta = params.pop("Delta")
         phi1 = params.pop("phi1")
         phi2 = params.pop("phi2")
-        pair = params.pop("pair")
-        offset = params.pop("offset")
-        f_chemical_potential = fill_system(
-            mu_qd=mu_qd, mus_nw=mus_nw, pair=pair, offset=offset
-        )
+        potential = params.pop("potential")
+        f_chemical_potential = fill_system(potential=potential, mus_nw=mus_nw)
         f_Delta_re = wires(mu=Delta * np.array([1, np.cos(phi1), np.cos(phi2)]))
         f_Delta_im = wires(mu=Delta * np.array([0, np.sin(phi1), np.sin(phi2)]))
 
@@ -116,3 +111,9 @@ def finite_system(**geometry):
     trijunction = make_junction(**geometry)
 
     return trijunction, f_params
+
+
+def get_potential(potential):
+    def f(x, y):
+        return potential[ta.array(x, y)]
+    return f
