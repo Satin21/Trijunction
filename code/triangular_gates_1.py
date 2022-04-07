@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append("/home/tinkerer/spin-qubit/codes/")
 sys.path.insert(0, "/home/tinkerer/Poisson_Solver")
 
@@ -25,7 +26,11 @@ from layout import (
     SimpleVoltageLayer,
     TwoDEGLayer,
 )
-from Hamiltonian import discrete_system_coordinates, kwant_system, tight_binding_Hamiltonian
+from Hamiltonian import (
+    discrete_system_coordinates,
+    kwant_system,
+    tight_binding_Hamiltonian,
+)
 
 mu = bands[0]
 # Set up system paramters
@@ -54,20 +59,20 @@ grid_spacing = grid_spacing_twoDEG
 
 # geometrical parameters
 area = 1200
-angle = 0.125*np.pi
+angle = 0.125 * np.pi
 wire_width = 7
 gap = 4
 
-triangle_length = np.sqrt(area*np.tan(angle))
-triangle_width = np.abs((triangle_length/np.tan(angle)))
-top_shift = np.tan(angle)*(wire_width/2)
+triangle_length = np.sqrt(area * np.tan(angle))
+triangle_width = np.abs((triangle_length / np.tan(angle)))
+top_shift = np.tan(angle) * (wire_width / 2)
 tunnel_length = 3
 tunnel_width = wire_width
 
 total_length = triangle_length + 2 * tunnel_length + 2 * gap - top_shift
 extra_width = 10
 total_width = 2 * extra_width + triangle_width
-total_width = 2*total_width
+total_width = 2 * total_width
 
 # Set up gates
 gates = triangular_gates_2(area, angle, wire_width, tunnel_length, gap, extra_width)
@@ -86,19 +91,16 @@ L = boundaries[3] - boundaries[2]
 W = boundaries[1] - boundaries[0]
 
 # Solve for Poisson system
-layout = Layout(total_width,
-                total_length,
-                grid_width_air=grid_spacing_air,
-                margin=(50, 50, 50),
-                shift=(0, total_length/2, 0))
+layout = Layout(
+    total_width,
+    total_length,
+    grid_width_air=grid_spacing_air,
+    margin=(50, 50, 50),
+    shift=(0, total_length / 2, 0),
+)
 
 layout.add_layer(
-    TwoDEGLayer(
-        "twoDEG",
-        thickness_twoDEG,
-        permittivity_twoDEG,
-        grid_spacing_twoDEG
-    ),
+    TwoDEGLayer("twoDEG", thickness_twoDEG, permittivity_twoDEG, grid_spacing_twoDEG),
     center=True,
 )
 
@@ -115,7 +117,7 @@ vertex = (
     list(gates["plunger_gates"].values()),
     list(gates["screen_gates"].values()),
     list(gates["tunel_gates"].values()),
-        )
+)
 
 layout.add_layer(
     OverlappingGateLayer(
@@ -133,31 +135,31 @@ linear_problem = linear_problem_instance(poisson_system)
 
 
 site_coords, site_indices = discrete_system_coordinates(
-    poisson_system, [('mixed', 'twoDEG')], boundaries=boundaries
+    poisson_system, [("mixed", "twoDEG")], boundaries=boundaries
 )
 
 crds = site_coords[:, [0, 1]]
-offset = crds[0]%grid_spacing
+offset = crds[0] % grid_spacing
 
 # Build kwant system
 a = 10e-9
-center = W*a/4
+center = W * a / 4
 centers = [center, -center]
 geometry = {
-    "l": 130*a,
-    "w": 7*a,
+    "l": 130 * a,
+    "w": 7 * a,
     "a": a,
-    "side": 'up',
-    "shape": 'rectangle',
-    "L": L*a,
-    "W": W*a,
-    "centers": centers
+    "side": "up",
+    "shape": "rectangle",
+    "L": L * a,
+    "W": W * a,
+    "centers": centers,
 }
 
 # tunnel positions
-x_r, y_r = int(W/4)*a, 0
-x_l, y_l = -int(W/4)*a, 0
-x_c, y_c = 0, int(L-1)*a
+x_r, y_r = int(W / 4) * a, 0
+x_l, y_l = -int(W / 4) * a, 0
+x_c, y_c = 0, int(L - 1) * a
 
 trijunction, f_params, f_params_potential = finite_system(**geometry)
 trijunction = trijunction.finalized()
@@ -173,21 +175,22 @@ def potential(voltage_setup, offset=offset, grid_spacing=1):
         voltage_setup,
         charges,
         offset,
-        grid_spacing
+        grid_spacing,
     )
     return clean_potential
 
 
 def get_hamiltonian(voltage_setup, key_1, val_1, key_2, val_2, params, points):
     voltage_setup[key_1] = val_1
-    voltage_setup[key_2] = val_2    
+    voltage_setup[key_2] = val_2
     f_pot = get_potential(potential(voltage_setup=voltage_setup, grid_spacing=10e-9))
 
-    ham_mat = trijunction.hamiltonian_submatrix(sparse=True,
-                                                params=f_params_potential(potential=f_pot,
-                                                                          params=params))
+    ham_mat = trijunction.hamiltonian_submatrix(
+        sparse=True, params=f_params_potential(potential=f_pot, params=params)
+    )
 
     return ham_mat, potential_at_gates(f_pot, points)
+
 
 def potential_at_gates(f_pot, points):
     data = []
@@ -196,10 +199,9 @@ def potential_at_gates(f_pot, points):
         data.append(f_pot(x, y))
     return np.array(data)
 
-def solver_electrostatics(tj_system, voltage_setup, key, n, eigenvecs):
-    """
 
-    """
+def solver_electrostatics(tj_system, voltage_setup, key, n, eigenvecs):
+    """ """
     params = junction_parameters(m_nw=np.array([mu, mu, mu]), m_qd=0)
 
     def eigensystem_sla(val, extra_params):
@@ -208,14 +210,18 @@ def solver_electrostatics(tj_system, voltage_setup, key, n, eigenvecs):
         system, f_params_potential = tj_system
 
         voltage_setup[key] = val
-        f_potential = get_potential(potential(voltage_setup=voltage_setup, grid_spacing=10e-9))
+        f_potential = get_potential(
+            potential(voltage_setup=voltage_setup, grid_spacing=10e-9)
+        )
         f_params = f_params_potential(potential=f_potential, params=params)
         ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params)
 
         if eigenvecs:
             evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
         else:
-            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
+            evals = np.sort(
+                sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs)
+            )
             evecs = []
 
         return evals, evecs

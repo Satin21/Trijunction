@@ -5,11 +5,10 @@ import numpy as np
 import scipy.sparse.linalg as sla
 
 
-
-
 def get_potential(potential):
     def f(x, y):
         return potential[ta.array([x, y])]
+
     return f
 
 
@@ -30,6 +29,7 @@ def solver(geometries, n, key, eigenvecs=False):
     --------
         eigensystem_sla: function that returns eigenvalues and eigenvectors per geometry per mu
     """
+
     def eigensystem_sla(geometry_index, mu, extra_params):
 
         system, params_func = geometries[geometry_index]
@@ -38,10 +38,14 @@ def solver(geometries, n, key, eigenvecs=False):
         params.update(extra_params)
         params[key] = mu
 
-        ham_mat = system.hamiltonian_submatrix(sparse=True, params=params_func(**params))
+        ham_mat = system.hamiltonian_submatrix(
+            sparse=True, params=params_func(**params)
+        )
 
         if not eigenvecs:
-            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
+            evals = np.sort(
+                sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs)
+            )
             evecs = []
         else:
             evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
@@ -65,7 +69,7 @@ def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
 
     Returns:
     --------
-        
+
     """
 
     def eigensystem_sla(potential_index, voltage, pair):
@@ -73,7 +77,7 @@ def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
         Paramters:
         ----------
             potential_index: int that tells what element to extract from potentials
-            voltage: voltage associated 
+            voltage: voltage associated
         """
 
         mu = bands[band]
@@ -84,12 +88,15 @@ def solver_potential(tj_system, n, potentials, eigenvecs=False, band=0):
         potential = potentials[potential_index]
         f_potential = get_potential(potential[voltage])
 
-        ham_mat = system.hamiltonian_submatrix(sparse=True,
-                                               params=f_params_potential(potential=f_potential, params=params))
+        ham_mat = system.hamiltonian_submatrix(
+            sparse=True, params=f_params_potential(potential=f_potential, params=params)
+        )
         if eigenvecs:
             evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
         else:
-            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
+            evals = np.sort(
+                sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs)
+            )
             evecs = []
 
         return evals, evecs
@@ -114,6 +121,7 @@ def general_solver(geometries, n, base_parameters, eigenvecs=False):
     --------
         solver: solver function that computes eigenvalues and eigenvectors
     """
+
     def solver(index, extra_params):
         """
         Parameters:
@@ -128,15 +136,20 @@ def general_solver(geometries, n, base_parameters, eigenvecs=False):
         system, f_params = geometries[index]
 
         base_parameters.update(extra_params)
-        ham_mat = system.hamiltonian_submatrix(sparse=True, params=f_params(**base_parameters))
+        ham_mat = system.hamiltonian_submatrix(
+            sparse=True, params=f_params(**base_parameters)
+        )
 
         if not eigenvecs:
-            evals = np.sort(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs))
+            evals = np.sort(
+                sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs)
+            )
             evecs = []
         else:
             evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
 
         return evals, evecs
+
     return solver
 
 

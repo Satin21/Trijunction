@@ -9,12 +9,12 @@ import tinyarray as ta
 def get_potential(potential):
     def f(x, y):
         return potential[ta.array([x, y])]
+
     return f
 
+
 def find_cuts(potentials, cut=10e-9, scale=1):
-    """
-    
-    """
+    """ """
     flatten_potentials = np.array(list(potentials.values()))
     potential_cuts = []
 
@@ -22,8 +22,8 @@ def find_cuts(potentials, cut=10e-9, scale=1):
         coordinates = np.array(list(element.keys()))
         values = np.array(list(element.values()))
 
-        x = scale*coordinates[:, 0]
-        y = scale*coordinates[:, 1]
+        x = scale * coordinates[:, 0]
+        y = scale * coordinates[:, 1]
         width = np.unique(x).shape[0]
         X = x.reshape(width, -1)
         Y = y.reshape(width, -1)
@@ -33,6 +33,7 @@ def find_cuts(potentials, cut=10e-9, scale=1):
         potential_cuts.append(poten)
 
     return X[:, 0], potential_cuts
+
 
 """
 def check_level_smooth(level):
@@ -58,6 +59,7 @@ def check_level_smooth_v2(level):
     return level
 """
 
+
 def find_resonances(energies, n, i=1, sign=1, **kwargs):
     """
     Extract peaks from np.abs(lowest) mode in energies.
@@ -66,8 +68,8 @@ def find_resonances(energies, n, i=1, sign=1, **kwargs):
     -----------
     """
     levels = energies.T
-    ground_state = levels[n//2 + i]
-    peaks, properties = find_peaks(sign*np.abs(ground_state), **kwargs)
+    ground_state = levels[n // 2 + i]
+    peaks, properties = find_peaks(sign * np.abs(ground_state), **kwargs)
 
     return ground_state, peaks
 
@@ -109,7 +111,7 @@ def coupling_data(data, n=6, i=1, eigenvecs=False, rel_height=0.5, **kwargs):
     if not eigenvecs:
         wfs = []
     else:
-        wfs = [wfs_13[:, n//2+1], wfs_12[:, n//2+1], wfs_23[:, n//2+1]]
+        wfs = [wfs_13[:, n // 2 + 1], wfs_12[:, n // 2 + 1], wfs_23[:, n // 2 + 1]]
 
     return spectra, couplings, wfs, peaks, widths
 
@@ -136,7 +138,7 @@ def separate_data_wires(data):
     data is formatted such that the first dimension corresponds to each of
     three MBS pairs. This functions separates each case in a different array.
     """
-    len_data = int(len(data)/3)
+    len_data = int(len(data) / 3)
     w12 = []
     w13 = []
     w23 = []
@@ -185,9 +187,9 @@ def separate_data_geometries(data, n_geometries):
     Separate output dask.dask_bag data for each geometry.
     """
     separated_data = []
-    step = int(len(data)/n_geometries)
+    step = int(len(data) / n_geometries)
     for i in range(n_geometries):
-        separated_data.append(data[i*step:(i+1)*step])
+        separated_data.append(data[i * step : (i + 1) * step])
     return separated_data
 
 
@@ -215,12 +217,14 @@ def average_energy_levels(mus, result, prominence=0):
 
         for i, j in indices_intervals:
             energy_section = np.abs(ens[k])[i:j]
-            ediff = np.abs(mus[j]-mus[i])
-            average = np.sum(energy_section)/np.abs(ediff)
+            ediff = np.abs(mus[j] - mus[i])
+            average = np.sum(energy_section) / np.abs(ediff)
             single_average.append(average)
-            single_mus.append(mus[i]+ediff/2)
+            single_mus.append(mus[i] + ediff / 2)
             single_widths.append(ediff)
         minimal_spacing = min(single_widths)
-        geometry_data.append([single_mus, single_average, single_widths, minimal_spacing])
+        geometry_data.append(
+            [single_mus, single_average, single_widths, minimal_spacing]
+        )
 
     return np.array(geometry_data)
