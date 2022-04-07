@@ -1,6 +1,7 @@
 import kwant
 import kwant.continuum
 import numpy as np
+import tinyarray as ta
 
 a = 10e-9
 
