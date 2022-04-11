@@ -87,7 +87,7 @@ def finite_system(**geometry):
         phi1 = params.pop("phi1")
         phi2 = params.pop("phi2")
         potential = params.pop("potential")
-        f_chemical_potential = fill_system(potential=potential, mus_nw=mus_nw)
+        f_chemical_potential = fill_system(scattering_potential=potential, mus_nw=mus_nw)
         f_Delta_re = wires(mu=Delta * np.array([1, np.cos(phi1), np.cos(phi2)]))
         f_Delta_im = wires(mu=Delta * np.array([0, np.sin(phi1), np.sin(phi2)]))
 
@@ -116,5 +116,5 @@ def finite_system(**geometry):
 
 def get_potential(potential):
     def f(x, y):
-        return potential[ta.array(x, y)]
+        return potential[ta.array([x, y])]
     return f
