@@ -59,7 +59,7 @@ def phase(pair, phis=phis):
     return extra_params
 
 
-def phase_params(offset, band_index=0, n=100):
+def phase_params(band_index=0, n=100):
     """ """
     wires = pairs_parameters(band_index)
     phases = np.linspace(0, 2 * np.pi, n)
@@ -70,9 +70,9 @@ def phase_params(offset, band_index=0, n=100):
 
         for wire in wires:
             if i < 1:
-                updated_params = {"phi1": phase, "phi2": 0, "offset": offset}
+                updated_params = {"phi1": phase, "phi2": 0}
             else:
-                updated_params = {"phi2": phase, "phi1": 0, "offset": offset}
+                updated_params = {"phi2": phase, "phi1": 0}
             params.append(wire | updated_params)
             i += 1
 
@@ -102,7 +102,7 @@ def single_parameter(key, vals, max_phis, offset):
     return params
 
 
-def junction_parameters(m_nw, m_qd, bx=b):
+def junction_parameters(m_nw, m_qd = 0.0, bx=b):
     """
     Typical parameters
     """
