@@ -24,27 +24,27 @@ phi23 = 1.97979798 * np.pi
 phis = np.array([1.23232323, 0.02020202, 1.97979798]) * np.pi
 
 
-def pairs_parameters(index, phis=[phi13, phi12, phi23], sigma=0):
+def pairs_parameters(index, phis1=[0, 0, 0], phis2=[0, 0, 0]):
     mu = bands[index]
-    params_12 = {
+    params_LR = {
         "mus_nw": np.array([mu, mu, -2]),
-        "phi1": phis[0],
-        "phi2": 0,
+        "phi1": phis1[0],
+        "phi2": phis2[0],
         "pair": "LR",
     }
-    params_13 = {
+    params_LC = {
         "mus_nw": np.array([mu, -2, mu]),
-        "phi2": phis[1],
-        "phi1": 0,
+        "phi1": phis1[1],
+        "phi2": phis2[1],
         "pair": "CR",
     }
-    params_23 = {
+    params_CR = {
         "mus_nw": np.array([-2, mu, mu]),
-        "phi2": phis[2],
-        "phi1": 0,
+        "phi2": phis1[2],
+        "phi1": phis2[2],
         "pair": "LC",
     }
-    params = [params_12, params_13, params_23]
+    params = [params_LR, params_LC, params_CR]
     return params
 
 
@@ -61,20 +61,16 @@ def phase(pair, phis=phis):
 
 def phase_params(band_index=0, n=100):
     """ """
-    wires = pairs_parameters(band_index)
     phases = np.linspace(0, 2 * np.pi, n)
     params = []
 
     for phase in phases:
-        i = 0
 
+        phis1 = [phase, 0, 0]
+        phis2 = [0, phase, phase]
+        wires = pairs_parameters(band_index, phis1=phis1, phis2=phis2)
         for wire in wires:
-            if i < 1:
-                updated_params = {"phi1": phase, "phi2": 0}
-            else:
-                updated_params = {"phi2": phase, "phi1": 0}
-            params.append(wire | updated_params)
-            i += 1
+            params.append(wire)
 
     return params
 
