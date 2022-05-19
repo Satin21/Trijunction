@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[248]:
+# In[1]:
 
 
 import sys
@@ -46,13 +46,13 @@ from shapely.ops import unary_union
 
 
 
-# In[3]:
+# In[2]:
 
 
 a = 10e-9
 
 
-# In[4]:
+# In[3]:
 
 
 options = cluster_options()
@@ -65,7 +65,7 @@ options.extra_path = "/home/srangaswamykup/trijunction_design/"
 
 # #### Parameters
 
-# In[5]:
+# In[4]:
 
 
 thickness_dielectric = 1
@@ -84,7 +84,7 @@ permittivity_air = 1.0
 permittivity_Al2O3 = 9.1
 
 
-# In[6]:
+# In[5]:
 
 
 # one only needs to define the arm length L, and the channel width
@@ -95,13 +95,13 @@ gap = 4
 R = L/np.sqrt(2)
 
 
-# In[7]:
+# In[6]:
 
 
 R
 
 
-# In[8]:
+# In[7]:
 
 
 # Boundaries within Poisson region
@@ -117,7 +117,7 @@ total_length = ymax
 
 # #### Make gate polygons using Shapely
 
-# In[9]:
+# In[8]:
 
 
 Y = unary_union(
@@ -157,7 +157,7 @@ gates_name = ['left_1', 'left_2', 'right_1', 'right_2', 'top_1', 'top_2']
 
 # #### Construct layout object for the Poisson solver
 
-# In[10]:
+# In[9]:
 
 
 # Solve for Poisson system
@@ -212,7 +212,7 @@ layout.add_layer(OverlappingGateLayer(thickness_gates,
 
 
 
-# In[11]:
+# In[10]:
 
 
 height += thickness_gates + 1
@@ -238,20 +238,20 @@ layout.add_layer(PlanarGateLayer("global_accumul",
 
 # #### Build Poisson object
 
-# In[12]:
+# In[11]:
 
 
 get_ipython().run_cell_magic('time', '', '\npoisson_system = layout.build()\n')
 
 
-# In[13]:
+# In[12]:
 
 
 grid_points = poisson_system.grid.points
 voltage_regions = poisson_system.regions.voltage.tag_points
 
 
-# In[1070]:
+# In[13]:
 
 
 plt.figure(figsize = (8, 7))
@@ -259,21 +259,21 @@ for name, indices in voltage_regions.items():
     grid_to_plot = grid_points[indices][:, [0, 1]]
     plt.scatter(grid_to_plot[:, 0], grid_to_plot[:, 1], s = 0.5)
     
-for i in range(len(dep_indices)):
-    to_plot = grid_points[twodeg_grid[dep_indices[i]]]
-    print(to_plot)
-    plt.scatter(to_plot[0][0], to_plot[0][1]);
+# for i in range(len(dep_indices)):
+#     to_plot = grid_points[twodeg_grid[dep_indices[i]]]
+#     print(to_plot)
+#     plt.scatter(to_plot[0][0], to_plot[0][1]);
 
 
 # #### LU decomposition of finite system
 
-# In[16]:
+# In[14]:
 
 
 get_ipython().run_cell_magic('time', '', '\nlinear_problem = linear_problem_instance(poisson_system)\n')
 
 
-# In[17]:
+# In[15]:
 
 
 site_coords, site_indices = discrete_system_coordinates(
@@ -285,19 +285,19 @@ grid_spacing = grid_spacing_twoDEG
 offset = crds[0]%grid_spacing
 
 
-# In[18]:
+# In[16]:
 
 
 grid_points= poisson_system.grid.points
 
 
-# In[19]:
+# In[17]:
 
 
 charge_regions = poisson_system.regions.charge.tag_points
 
 
-# In[20]:
+# In[18]:
 
 
 voltage_regions = poisson_system.regions.voltage.tag_points
@@ -312,13 +312,13 @@ for region in charge_regions.keys():
 
 # #### Verify the potential
 
-# In[21]:
+# In[19]:
 
 
 voltage_regions = list(poisson_system.regions.voltage.tag_points.keys())
 
 
-# In[22]:
+# In[20]:
 
 
 depleted = -1e-3
@@ -341,19 +341,19 @@ def voltage_dict(depleted, acumulate):
     return voltages
 
 
-# In[23]:
+# In[21]:
 
 
 voltages = voltage_dict(depleted, acumulate)
 
 
-# In[24]:
+# In[22]:
 
 
 get_ipython().run_cell_magic('time', '', '\ncharges = {}\nclean_potential = gate_potential(\n        poisson_system,\n        linear_problem,\n        site_coords[:, [0, 1]],\n        site_indices,\n        voltages,\n        charges,\n        offset=offset,\n        grid_spacing=a\n    )\n')
 
 
-# In[25]:
+# In[23]:
 
 
 coordinates = np.array(list(clean_potential.keys()))
@@ -366,7 +366,7 @@ Y = y.reshape(width_plot, -1) / a
 Z = np.round(np.array(list(clean_potential.values())).reshape(width_plot, -1) * -1, 4)
 
 
-# In[26]:
+# In[24]:
 
 
 plt.figure()
@@ -374,7 +374,7 @@ plt.imshow(np.rot90(Z), extent = (xmin, xmax, ymin, ymax), cmap = 'magma_r')
 plt.colorbar();
 
 
-# In[27]:
+# In[25]:
 
 
 plt.imshow((np.rot90(Z[::-1,:])-np.rot90(Z)), extent = (xmin, xmax, ymin, ymax), cmap = 'magma_r')
@@ -386,7 +386,7 @@ plt.title("V(x,y) - V(-x,y)")
 
 # #### Build kwant object
 
-# In[1660]:
+# In[26]:
 
 
 # Build kwant system
@@ -408,7 +408,7 @@ geometry ={'nw_l': l, 'nw_w': w,
           }
 
 
-# In[1661]:
+# In[27]:
 
 
 geometry
@@ -416,13 +416,13 @@ geometry
 import importlib
 import ccode.parameters
 importlib.reload(ccode.parameters)
-# In[1662]:
+# In[28]:
 
 
 get_ipython().run_cell_magic('time', '', '\ntrijunction, f_params = finite_system(**geometry)\ntrijunction = trijunction.finalized()\n')
 
 
-# In[1663]:
+# In[29]:
 
 
 fig, ax = plt.subplots()
@@ -437,34 +437,127 @@ voltage_regions = poisson_system.regions.voltage.tag_points
 #         ax.scatter(grid_to_plot[:, 0], grid_to_plot[:, 1], s = 0.5)
 
 np.unique(grid_points[voltage_regions['global_accumul']][:, 1])
-# In[1619]:
+# In[30]:
 
 
 import pickle
 
 
-# In[1620]:
+# In[31]:
 
 
 with open("/home/tinkerer/trijunction-design/data/optimal_phase.pkl", 'rb') as infile:
     optimal_phase = pickle.load(infile)
 
 
-# In[1621]:
+# In[32]:
 
 
 optimal_phase = optimal_phase * np.pi
 
 
+# #### Optimal phases
+
+# In[33]:
+
+
+voltages = {'left_1': -5e-3, 
+            'left_2': -5e-3,
+            'right_1': -5e-3,
+            'right_2': -5e-3,
+            'top_1' : -18e-3,
+            'top_2' : -18e-3,
+            'global_accumul': 35e-3}
+
+
+# In[34]:
+
+
+potential = gate_potential(
+        poisson_system,
+        linear_problem,
+        site_coords[:, [0, 1]],
+        site_indices,
+        voltages,
+        charges,
+        offset=offset[[0, 1]],
+        grid_spacing=a
+    )
+
+
+# In[35]:
+
+
+mu = pm.bands[0]
+params = pm.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
+
+
+# In[36]:
+
+
+params.update(potential=clean_potential)
+
+
+# In[2804]:
+
+
+solver = sl.general_solver(geometries=[[trijunction, f_params]],
+                           n=20,
+                           base_parameters=params,
+                           eigenvecs=False)
+
+
+def wrap(arg):
+    return solver(*arg)
+
+
+# In[2806]:
+
+
+args = list(it.product([0],pm.phase_params()))
+args_db = db.from_sequence(args)
+
+
+# In[2807]:
+
+
+get_ipython().run_cell_magic('time', '', 'with Cluster(options) as cluster:\n    cluster.scale(10)\n    client = cluster.get_client()\n    print("http://io.quantumtinkerer.tudelft.nl/user/srangaswamykup/proxy/"+cluster.dashboard_link[17:])\n    result = args_db.map(wrap).compute()\n')
+
+
+# In[2808]:
+
+
+spectra, couplings, wfs, peaks, widths = tl.coupling_data(result, n=20)
+
+
+# In[2809]:
+
+
+phis = np.linspace(0, 2, 100)
+max_phis = phis[np.array(peaks).flatten()]
+
+
+# In[2810]:
+
+
+max_phis
+
+optimal_phase = np.zeros((3, ))
+# In[2812]:
+
+
+optimal_phase[0] = max_phis[0] 
+
+
 # #### Optimize gate voltages
 
-# In[1622]:
+# In[37]:
 
 
 from scipy import sparse
 
 
-# In[1664]:
+# In[38]:
 
 
 poisson_params = {
@@ -487,7 +580,7 @@ kwant_params = {
 }
 
 
-# In[1665]:
+# In[39]:
 
 
 def spectrum_f_voltages(
@@ -523,7 +616,7 @@ def spectrum_f_voltages(
         return evals
 
 
-# In[1666]:
+# In[40]:
 
 
 voltage_dict = {'left' : -0.0026, 
@@ -532,7 +625,7 @@ voltage_dict = {'left' : -0.0026,
                 'back' : 0.00045}
 
 
-# In[1667]:
+# In[41]:
 
 
 for i in range(1, 3):
@@ -543,7 +636,7 @@ for i in range(1, 3):
 voltages['global_accumul'] = voltage_dict['back']
 
 
-# In[1668]:
+# In[42]:
 
 
 centers = np.array(geometry['centers']) / a
@@ -558,26 +651,26 @@ depletion_regions  = {'left': np.array(((centers[0][0] - nw_w /2, centers[0][1])
                               (centers[2][0] + nw_w /2, centers[2][1] - nw_l)), dtype = 'float32')}
 
 
-# In[1669]:
+# In[149]:
 
 
 grid = poisson_system.grid.points.astype('float32')
 
 
-# In[1670]:
+# In[150]:
 
 
 voltage_regions = poisson_system.regions.voltage.tag_points
 
 
-# In[1671]:
+# In[151]:
 
 
 twodeg_grid = site_indices
 twodeg_grid_monolayer = twodeg_grid[grid[twodeg_grid][:, 2] == np.unique(grid[twodeg_grid][:, 2])[0]]
 
 
-# In[1672]:
+# In[152]:
 
 
 def depletion_points(grid, monolayer, boundary):
@@ -589,7 +682,7 @@ def depletion_points(grid, monolayer, boundary):
     return monolayer[X][point_indices]
 
 
-# In[1673]:
+# In[153]:
 
 
 dep_indices = []
@@ -616,7 +709,7 @@ for gate in ['left', 'right']:
                                                     indices)))[0][0]]))
 
 
-# In[1674]:
+# In[154]:
 
 
 def left(site):
@@ -635,7 +728,13 @@ def top(site):
 topop = Density(trijunction, onsite = np.eye(4), where = top, sum = True)
 
 
-# In[1675]:
+# In[160]:
+
+
+from utility import gather_data
+
+
+# In[361]:
 
 
 def gate_tuner(x, *argv):
@@ -650,8 +749,9 @@ def gate_tuner(x, *argv):
     voltages['global_accumul'] = x[3]
     
     poisson_params, kwant_params, general_params,  = argv[:3]
-    dep_points, acc_points, coupled_pair  = argv[3:6]
-    base_hamiltonian, linear_hamiltonian = argv[6:8]
+    dep_points, acc_points, coupled_pair, uncoupled_pairs  = argv[3:7]
+    base_hamiltonian, linear_hamiltonian = argv[7:9]
+    X_operator, Y_operator = argv[9:11]
     
     
     pp = poisson_params
@@ -704,65 +804,76 @@ def gate_tuner(x, *argv):
     eigval, eigvec = sl.sort_eigen(sparse.linalg.eigsh(tight_binding_hamiltonian.tocsc(), 
                                                        k=12, sigma = 0))
     
-    eigval = eigval[6:]
-    eigvec = eigvec[6:]
+    eigval = eigval
+    eigvec = eigvec
     
     density = kwant.operator.Density(kp['finite_system_object'], np.eye(4))
     
-    basis_sequence = []
-    for vec in eigvec[:3]:
-        basis_sequence.append(np.argmax([op(vec) for op in [leftop, 
-                                                            rightop, 
-                                                            topop]]))
+#     basis_sequence = []
+#     for vec in eigvec[:3]:
+#         basis_sequence.append(np.argmax([op(vec) for op in [leftop, 
+#                                                             rightop, 
+#                                                             topop]]))
 
-    basis_sequence = np.hstack(basis_sequence)
+#     basis_sequence = np.hstack(basis_sequence)
 
-    eigval[:3] = eigval[:3][basis_sequence]
-    eigvec[:3] = np.squeeze(eigvec[:3][basis_sequence])
+    # eigval = eigval[:3][basis_sequence]
+    # eigvec[:3] = np.squeeze(eigvec[:3][basis_sequence])
+    
+    projected_X_operator = wannier_1D_operator(X_operator, 
+                                           eigvec[3:9].T)
+
+    projected_Y_operator = wannier_1D_operator(Y_operator, 
+                                           eigvec[3:9].T)
+    
+    w_basis = wannier_basis([projected_X_operator, 
+                         projected_Y_operator])
+
+    mlwf = w_basis.T @ eigvec[3:9]
+    
+    fig, ax = plt.subplots(2, 6, figsize = (10, 5), sharey= True)
+    for i in range(6):
+        kwant.plotter.density(trijunction, density(mlwf[i]), ax = ax[0][i]);
+    for i in range(6):
+        kwant.plotter.density(trijunction, density(eigvec[3:9][i]), ax = ax[1][i]);
+    
+    filepath = '/home/tinkerer/trijunction-design/data/optimization/'
+    seed = gather_data(filepath)
+
+    if ".ipynb_checkpoints" in seed:
+        os.system("rm -rf .ipynb_checkpoints")
+
+    if len(seed):
+        file_name = filepath + "plt_" + str(max(seed) + 1) + "_.png"
+    else:
+        file_name = filepath + "plt_" + str(0) + "_.png"
+
+    plt.savefig(file_name, format="png", bbox_inches="tight", pad_inches=0.0)
+
+    plt.close()
 
     if coupled_pair != None:
 
-        S = eigvec @ eigvec.T.conj()
+        S = eigvec[3:9] @ mlwf.T.conj()
         U, _, Vh = svd(S)
         S_prime = U @ Vh
-        transformed = S_prime.T.conj() @ np.diag(eigval) @ S_prime
+        eff_Hamiltonian = S_prime.T.conj() @ np.diag(eigval[3:9]) @ S_prime
         
-        uncoupled_pairs = set(range(3))- set((coupled_pair,))
         
-        uncoupled_cost = np.zeros((len(uncoupled_pairs), ))
+        coupled_cost = -1 * np.abs(eff_Hamiltonian[coupled_pair[0], coupled_pair[1]])
+        uncoupled_cost = np.zeros((2, ))
         
-        coupled_cost = -1 * np.abs(transformed[coupled_pair+3, coupled_pair+3])
-        for i, pair_index in enumerate(uncoupled_pairs): 
-            uncoupled_cost[i] = np.abs(transformed[pair_index+3, pair_index+3])
+        for i, pair in enumerate(uncoupled_pairs): 
+            uncoupled_cost[i] = np.abs(eff_Hamiltonian[pair[0], pair[1]])
         
         total_coupling_cost = coupled_cost + sum(uncoupled_cost)
         
         print(coupled_cost)
         
-        if coupled_cost > 1e-9:
+        if np.abs(total_coupling_cost) > 1e-9:
             cost = [total_coupling_cost]
         else:
             cost.append(total_coupling_cost)
-            
-    
-#     fig, ax = plt.subplots(1, 6, figsize = (10, 5), sharey= True)
-#     for i in range(6):
-#         kwant.plotter.density(trijunction, density(eigvec[i]), ax = ax[i]);
-    
-#     filepath = '/home/tinkerer/trijunction-design/data/optimization/'
-#     seed = gather_data(filepath)
-
-#     if ".ipynb_checkpoints" in seed:
-#         os.system("rm -rf .ipynb_checkpoints")
-
-#     if len(seed):
-#         file_name = filepath + "plt_" + str(max(seed) + 1) + "_.png"
-#     else:
-#         file_name = filepath + "plt_" + str(0) + "_.png"
-
-#     plt.savefig(file_name, format="png", bbox_inches="tight", pad_inches=0.0)
-
-#     plt.close()
     
     print(cost)
     
@@ -770,41 +881,37 @@ def gate_tuner(x, *argv):
     
 
 
-# In[1636]:
+# In[362]:
 
 
 mu = pm.bands[0]
 
-
-# In[1637]:
-
-
 params = pm.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
+# In[363]:
 
 
-# In[1638]:
-
-
-coupled_pairs = None # 0: left, 1: right, 2: top
+coupled_pairs = [2, 3] # 0: left, 1: right, 2: top
+uncoupled_pairs = [[2, 4], [3, 4]]
 args = (poisson_params, kwant_params, params, 
-        dep_indices, acc_indices, coupled_pairs,
-        base_hamiltonian, linear_ham)
-initial_condition = sol1.x
+        dep_indices, acc_indices, coupled_pairs, uncoupled_pairs,
+        base_hamiltonian, linear_ham,
+        X_operator, Y_operator)
+initial_condition = list(voltages.values())
 
 
-# In[1639]:
+# In[364]:
 
 
 initial_condition
 
 from utility import gather_data
-# In[1640]:
+# In[366]:
 
 
-get_ipython().run_cell_magic('time', '', "\nsol1 = minimize(\n            gate_tuner,\n            initial_condition,\n            args=args,\n    # ftol = 1e-6,\n    # verbose = 2\n    method = 'trust-constr',\n            options = {'disp': True, 'verbose': 2, 'maxiter': 20, \n                       'gtol': 1e-3, 'initial_tr_radius': 2e-4}\n        )\n")
+get_ipython().run_cell_magic('time', '', "\nsol1 = minimize(\n            gate_tuner,\n            initial_condition,\n            args=args,\n    # ftol = 1e-6,\n    # verbose = 2\n    method = 'trust-constr',\n            options = {'disp': True, 'verbose': 2, 'maxiter': 20, \n                       'initial_tr_radius': 2e-4,\n                       'gtol': 1e-3}\n        )\n")
 
 
-# In[1805]:
+# In[2819]:
 
 
 x = sol1.x
@@ -816,27 +923,33 @@ for i in range(1, 3):
 voltages['global_accumul'] = x[3]
 
 
-# In[2491]:
+# In[350]:
 
 
-voltages
+voltages = {'left_1': -0.003681622975055661,
+ 'left_2': -0.008681622975055661,
+ 'right_1': -0.008681622975055661,
+ 'right_2': -0.003681622975055661,
+ 'top_1': -0.0037495890626959454,
+ 'top_2': -0.0037495890626959454,
+ 'global_accumul': -6.98461859286267e-05}
 
 voltages['left_2'] -= 0.005
 voltages['right_1'] = voltages['left_2']
 voltages['right_2'] = voltages['left_1']
-# In[2493]:
+# In[458]:
 
 
 get_ipython().run_cell_magic('time', '', "\ncharges = {}\npotential = gate_potential(\n        poisson_system,\n        linear_problem,\n        site_coords[:, [0, 1]],\n        site_indices,\n        voltages,\n        charges,\n        offset = offset[[0, 1]],\n        grid_spacing = kwant_params['grid_spacing']\n    )\n\npotential.update((x, y*-1) for x, y in potential.items())\n\nparams.update(potential=potential)\n")
 
 
-# In[2494]:
+# In[459]:
 
 
 f_mu = f_params(**params)['mu']
 
 
-# In[2495]:
+# In[460]:
 
 
 def plot_f_mu(i):
@@ -844,30 +957,32 @@ def plot_f_mu(i):
     return f_mu(x, y)
 
 
-# In[2496]:
+# In[461]:
 
 
 kwant_sites = np.array(list(site.pos for site in trijunction.sites))
 
 
-# In[2497]:
+# In[462]:
 
 
 to_plot = [plot_f_mu(i) for i in range(len(kwant_sites))]
 
 
+# In[463]:
 
 
 grid_points = poisson_system.grid.points
 voltage_regions = poisson_system.regions.voltage.tag_points
 
 
-
+# In[464]:
 
 
 pm.bands[0]
 
 
+# In[465]:
 
 
 fig, ax = plt.subplots(1, 1, figsize = (7, 5))
@@ -878,6 +993,33 @@ ax.set_ylim(-0.5e-6, 1.0e-6);
 plt.colorbar(cax);
 # plt.axis('equal')
 
+
+# In[257]:
+
+
+get_ipython().run_cell_magic('time', '', '\nbase_hamiltonian, linear_ham = linear_Hamiltonian(poisson_params, \n                                                  kwant_params, \n                                                  params, \n                                                  list(voltage_regions.keys()),\n                                                  phis = [optimal_phase[0], np.pi])\n')
+
+
+# In[371]:
+
+
+voltages
+
+
+# In[434]:
+
+
+voltages['left_2'] -= 0.001
+voltages['right_1'] = voltages['left_2']
+
+
+# In[435]:
+
+
+voltages
+
+
+# In[436]:
 
 
 summed_ham = sum(
@@ -894,9 +1036,11 @@ eigval, eigvec = sl.sort_eigen(sparse.linalg.eigsh(tight_binding_hamiltonian.toc
                                                    k=12, sigma = 0))
 
 
+# In[437]:
 
-eigval = eigval[3:9]
-eigvec = eigvec[3:9]
+
+eigval = eigval
+eigvec = eigvec
 
 basis_sequence = []
 for vec in eigvec[:3]:
@@ -907,21 +1051,25 @@ for vec in eigvec[:3]:
 basis_sequence = np.hstack(basis_sequence)
 
 eigval[:3] = eigval[:3][basis_sequence]
-eigvec[:3] = np.squeeze(eigvec[:3][basis_sequence])
-# In[2639]:
+eigvec[:3] = np.squeeze(eigvec[:3][basis_sequence])density = Density(trijunction, np.eye(4))
+# In[457]:
 
 
-density = Density(trijunction, np.eye(4))
-
-
-
-
-fig, ax = plt.subplots(1, len(eigvec), figsize = (5, 5), sharey = True)
-for i in range(len(eigvec)):
-    cax = kwant.plotter.density(trijunction, density(eigvec[i]), ax = ax[i]);
+fig, ax = plt.subplots(1, len(eigvec[3:9]), figsize = (5, 5), sharey = True)
+for i in range(len(eigvec[3:9])):
+    cax = kwant.plotter.density(trijunction, density(eigvec[3:9][i]), ax = ax[i]);
 
 
 # #### Wannierization
+
+# In[442]:
+
+
+from utility import wannier_effective_Hamiltonian
+
+
+# In[443]:
+
 
 X_operator = Density(
             trijunction, onsite=lambda site: np.eye(4) * site.pos[0], sum=True
@@ -931,56 +1079,60 @@ Y_operator = Density(
             trijunction, onsite=lambda site: np.eye(4) * site.pos[1], sum=True
         )
 
+
+# In[444]:
+
+
 projected_X_operator = wannier_1D_operator(X_operator, 
-                                           eigvec.T)
+                                           eigvec[3:9].T)
 
 projected_Y_operator = wannier_1D_operator(Y_operator, 
-                                           eigvec.T)
+                                           eigvec[3:9].T)
+
+import scipy
+# In[446]:
+
 
 w_basis = wannier_basis([projected_X_operator, 
                          projected_Y_operator])
 
-Wannier_Hamiltonian = wannier_effective_Hamiltonian(eigval, w_basis)
-
-_, eff_ham_vec = scipy.linalg.eigh(Wannier_Hamiltonian)
-
-wannier_eigvec = eff_ham_vec @ eigvec
+wannier_eigvec = w_basis.T @ eigvec[3:9]
 
 
-# In[2663]:
+# In[448]:
 
 
-fig, ax = plt.subplots(1, len(eigvec), figsize = (5, 5), sharey = True)
-for i in range(len(eigvec)):
+fig, ax = plt.subplots(1, 6, figsize = (5, 5), sharey = True)
+for i in range(6):
     cax = kwant.plotter.density(trijunction, density(wannier_eigvec[i]), ax = ax[i]);
 
 
 # ### Effective Majorana basis
 
-# In[2002]:
+# In[449]:
 
 
-S = eigvec @ eigvec.T.conj()
+S = eigvec[3:9] @ wannier_eigvec.T.conj()
 U, _, Vh = svd(S)
 S_prime = U @ Vh
-transformation = S_prime @ np.diag(eigval) @ S_prime.T.conj()
+transformation = S_prime.T.conj() @ np.diag(eigval[3:9]) @ S_prime
 
 
-# In[2003]:
+# In[455]:
 
 
-Matrix(np.round(transformation, 12))
+Matrix(np.round(transformation/params['Delta'], 10))
 
 
-# Linear part of the Hamiltonian
+# #### Linear part of the Hamiltonian
 
-# In[474]:
+# In[56]:
 
 
 from tqdm import tqdm
 
 
-# In[1761]:
+# In[53]:
 
 
 def linear_Hamiltonian(
@@ -1051,12 +1203,6 @@ def linear_Hamiltonian(
         hamiltonian_V[gate] = hamiltonian - bare_hamiltonian
 
     return bare_hamiltonian, hamiltonian_V
-
-
-# In[1762]:
-
-
-get_ipython().run_cell_magic('time', '', '\nbase_hamiltonian, linear_ham = linear_Hamiltonian(poisson_params, \n                                                  kwant_params, \n                                                  params, \n                                                  list(voltage_regions.keys()),\n                                                  phis = [optimal_phase[0], np.pi])\n')
 
 
 # In[503]:
