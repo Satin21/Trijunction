@@ -4,6 +4,24 @@ from scipy.signal import find_peaks, peak_widths
 import matplotlib.animation as animation
 import sys
 import tinyarray as ta
+from tqdm import tqdm
+
+sys.path.append("/home/tinkerer/spin-qubit/")
+from potential import gate_potential
+
+
+# https://stackoverflow.com/a/3233356
+
+import collections.abc
+
+
+def dict_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = dict_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 
 def get_potential(potential):
@@ -11,6 +29,69 @@ def get_potential(potential):
         return potential[ta.array([x, y])]
 
     return f
+
+
+def linear_Hamiltonian(
+    poisson_params, kwant_params, general_params, gates, phis=[0.0, 0.0]
+):
+
+    ## non-linear part of the Hamiltonian
+
+    voltages = {}
+
+    for gate in gates:
+        voltages[gate] = 0.0
+
+    kp = kwant_params
+    pp = poisson_params
+
+    charges = {}
+    potential = gate_potential(
+        pp["poisson_system"],
+        pp["linear_problem"],
+        pp["site_coords"][:, [0, 1]],
+        pp["site_indices"],
+        voltages,
+        charges,
+        offset=kp["offset"][[0, 1]],
+        grid_spacing=kp["grid_spacing"],
+    )
+
+    general_params.update(potential=potential)
+    general_params["phi1"] = phis[0]
+    general_params["phi2"] = phis[1]
+
+    bare_hamiltonian = kp["finite_system_object"].hamiltonian_submatrix(
+        sparse=True, params=kp["finite_system_params_object"](**general_params)
+    )
+
+    hamiltonian_V = {}
+    for gate in tqdm(gates):
+
+        voltages_t = dict.fromkeys(voltages, 0.0)
+
+        voltages_t[gate] = 1.0
+
+        potential = gate_potential(
+            pp["poisson_system"],
+            pp["linear_problem"],
+            pp["site_coords"][:, [0, 1]],
+            pp["site_indices"],
+            voltages_t,
+            charges,
+            offset=kp["offset"][[0, 1]],
+            grid_spacing=kp["grid_spacing"],
+        )
+
+        general_params.update(potential=potential)
+
+        hamiltonian = kp["finite_system_object"].hamiltonian_submatrix(
+            sparse=True, params=kp["finite_system_params_object"](**general_params)
+        )
+
+        hamiltonian_V[gate] = hamiltonian - bare_hamiltonian
+
+    return bare_hamiltonian, hamiltonian_V
 
 
 def find_cuts(potentials, cut=10e-9, scale=1):

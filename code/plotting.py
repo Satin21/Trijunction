@@ -2,7 +2,7 @@ import kwant
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
-from .tools import find_cuts
+from tools import find_cuts
 
 
 def plot_potential_at_barriers(

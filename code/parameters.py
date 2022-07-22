@@ -98,13 +98,13 @@ def single_parameter(key, vals, max_phis, offset):
     return params
 
 
-def junction_parameters(m_nw, m_qd = 0.0, bx=b):
+def junction_parameters(m_nw, m_qd=0.0, bx=b):
     """
     Typical parameters
     """
 
     a = 10e-9
-    t = hbar ** 2 / (2 * 0.023 * electron_mass) * (6.24e18)
+    t = hbar**2 / (2 * 0.023 * electron_mass) * (6.24e18)
     alpha = 0.3e-10
     Delta = 5e-4
     parameters = dict(
