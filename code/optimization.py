@@ -21,9 +21,11 @@ import tools
 
 importlib.reload(tools)
 
+sys.path.append(os.path.realpath(sys.path[0] + '/..'))
+from rootpath import ROOT_DIR
 
 # pre-defined functions from spin-qubit repository
-sys.path.append("/home/tinkerer/spin-qubit/")
+sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
 from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
 from utility import wannier_basis
@@ -229,10 +231,10 @@ class Optimize:
                 "site_coords": self.site_coords,
                 "site_indices": self.site_indices,
             }
-
+            
             crds = self.site_coords
-            grid_spacing = self.config["device"]["grid_spacing"]["twoDEG"]
-            offset = crds[0] % grid_spacing
+            grid_spacing = self.config['device']['grid_spacing']['twoDEG']
+            offset = crds[0]%grid_spacing
 
             kwant_params = {
                 "offset": offset,
@@ -631,7 +633,7 @@ def cost_function(x, *argv):
     voltages["top_1"] = x[2]
     voltages["top_2"] = voltages["top_1"]
     voltages["global_accumul"] = x[3]
-
+    
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
 
@@ -703,9 +705,7 @@ def cost_function(x, *argv):
                 potential_array[uniform[0]] - potential_array[uniform[1]]
             )
 
-        energies, coupled_states = energyspectrum(
-            base_hamiltonian, linear_ham, voltages
-        )
+        energies, coupled_states = energyspectrum(base_hamiltonian, linear_ham, voltages)
 
         # Overlap matrix
         decoupled_states = mlwf

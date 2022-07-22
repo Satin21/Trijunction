@@ -1,7 +1,11 @@
 import numpy as np
-import sys
+import sys, os
 
-sys.path.append("/home/tinkerer/spin-qubit/")
+sys.path.append(os.path.realpath(sys.path[0] + '/..'))
+from rootpath import ROOT_DIR
+
+# pre-defined functions from spin-qubit repository
+sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
 from layout import (
     Layout,
     OverlappingGateLayer,

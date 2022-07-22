@@ -2,11 +2,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import find_peaks, peak_widths
 import matplotlib.animation as animation
-import sys
+import sys, os
 import tinyarray as ta
 from tqdm import tqdm
 
-sys.path.append("/home/tinkerer/spin-qubit/")
+sys.path.append(os.path.realpath(sys.path[0] + '/..'))
+from rootpath import ROOT_DIR
+
+# pre-defined functions from spin-qubit repository
+sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
 from potential import gate_potential
 
 
