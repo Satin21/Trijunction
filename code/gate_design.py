@@ -7,19 +7,6 @@ import numpy as np
 
 from gates import rectangular_gate, half_disk_gate
 
-sys.path.append(os.path.realpath(sys.path[0] + "/.."))
-from rootpath import ROOT_DIR
-
-filepath = os.path.join(ROOT_DIR, "code/")
-
-
-filename = "config.json"
-with open(filepath + filename, "r") as infile:
-    config = json.load(infile)
-
-gate_config = config["gate"]
-
-
 def _gate_coords(obj, difference=None, common=None, gap=None):
 
     if type(common) == np.ndarray:
@@ -43,15 +30,15 @@ def _gate_coords(obj, difference=None, common=None, gap=None):
             )
 
 
-def gate_coords(
-    L: float = gate_config["L"],
-    width: float = gate_config["width"],
-    gap: float = gate_config["gap"],
-):
+def gate_coords(gate_config):
 
     """
     Returns gate vertices and gate names
     """
+    
+    L = gate_config["L"]
+    width = gate_config["width"]
+    gap = gate_config["gap"]
 
     R = L / np.sqrt(2)
 

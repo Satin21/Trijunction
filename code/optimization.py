@@ -5,7 +5,6 @@ import sys, os
 import kwant
 import scipy.sparse.linalg as sla
 import dask.bag as db
-from dask_quantumtinkerer import Cluster
 from shapely.geometry.polygon import Polygon
 from scipy.linalg import svd
 from scipy.optimize import minimize
@@ -15,14 +14,12 @@ from tools import dict_update, find_resonances
 from constants import length_unit
 from solvers import sort_eigen
 import parameters
-
-import importlib
 import tools
 
-importlib.reload(tools)
+ROOT_DIR = '/home/srangaswamykup/trijunction_design'
 
-sys.path.append(os.path.realpath(sys.path[0] + '/..'))
-from rootpath import ROOT_DIR
+# sys.path.append(os.path.realpath(sys.path[0] + '/..'))
+# from rootpath import ROOT_DIR
 
 # pre-defined functions from spin-qubit repository
 sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
@@ -35,9 +32,6 @@ from tools import linear_Hamiltonian
 global optimization_args
 optimization_args = None
 
-sys.path.append(os.path.realpath(sys.path[0] + "/.."))
-from rootpath import ROOT_DIR
-
 
 def _closest_node(node, nodes):
     """Euclidean distance between a node and array of nodes"""
@@ -46,7 +40,7 @@ def _closest_node(node, nodes):
     return np.argmin(dist)
 
 
-def configuration(config, length_unit=1e-8, change_config=[]):
+def configuration(config, length_unit=1e-8, change_config=[], poisson_system = []):
 
     if len(change_config):
         for local_config in change_config:
@@ -65,8 +59,10 @@ def configuration(config, length_unit=1e-8, change_config=[]):
     ymax = R + gate_config["L"] - gate_config["width"]
 
     boundaries = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
-
-    poisson_system = discretize_heterostructure(config, boundaries)
+    
+    if not poisson_system:
+        poisson_system = discretize_heterostructure(config, boundaries)
+        
     linear_problem = linear_problem_instance(poisson_system)
 
     return config, boundaries, poisson_system, linear_problem
@@ -140,8 +136,9 @@ class Optimize:
         self.voltages = dict(zip(arm, volt))
         for i in range(6):
             self.voltages["dirichlet_" + str(i)] = 0.0
-
-        self.setconfig()
+        
+        if self.poisson_system:
+            self.setconfig()
 
     def setconfig(self):
 
@@ -169,136 +166,165 @@ class Optimize:
         )
         self.densityoperator = kwant.operator.Density(self.trijunction, np.eye(4))
 
-    def changeconfig(self, change_config):
+    def changeconfig(self, change_config, poisson_system = []):
         (
             self.config,
             self.boundaries,
             self.poisson_system,
             self.linear_problem,
         ) = configuration(
-            self.config, length_unit=self.length_unit, change_config=change_config
+            self.config, length_unit=self.length_unit, change_config=change_config, poisson_system = poisson_system
         )
         self.setconfig()
 
         return self.config, self.boundaries, self.poisson_system, self.linear_problem
 
-    def set_voltages(self, newvoltages):
+    def set_voltages(self, newvoltages, find_mlwf = False):
         self.voltages.update(dict(zip(self.voltage_regions, newvoltages)))
-        _, self.eigenstates = energyspectrum(
-            self.base_hamiltonian, self.linear_ham, self.voltages
-        )
-        self.mlwf = _wannierize(self.trijunction, self.eigenstates)
-
-    def optimize_gate(self, pair: str, initial_condition: list, optimal_phis=None):
-
-        if optimal_phis is not None:
-            self.optimal_phis = optimal_phis
-        if hasattr(self, "optimal_phis"):
-            args = self.params(pair, self.optimal_phis)
-            sol1 = minimize(
-                cost_function,
-                initial_condition,
-                args=args,
-                # ftol = 1e-3,
-                # verbose = 2,
-                # max_nfev= 15
-                # bounds = bounds,
-                method="trust-constr",
-                options={
-                    "disp": True,
-                    "verbose": 2,
-                    "initial_tr_radius": 1e-3,
-                    "gtol": 1e0,
-                },
-            )
-            return sol1.x
-
-        else:
-            print(
-                "Please calculate optimal phases for the nanowires before optimizing the gates"
-            )
-
-    def params(self, pair: str, optimal_phis=None):
-
-        if optimal_phis is not None:
-            self.optimal_phis = optimal_phis
-        if hasattr(self, "optimal_phis"):
-            self.pair = pair
-
-            poisson_params = {
-                "poisson_system": self.poisson_system,
-                "linear_problem": self.linear_problem,
-                "site_coords": self.site_coords,
-                "site_indices": self.site_indices,
-            }
-            
-            crds = self.site_coords
-            grid_spacing = self.config['device']['grid_spacing']['twoDEG']
-            offset = crds[0]%grid_spacing
-
-            kwant_params = {
-                "offset": offset,
-                "grid_spacing": self.length_unit,
-                "finite_system_object": self.trijunction,
-                "finite_system_params_object": self.f_params,
-            }
-
-            twodeg_grid = self.site_indices
-
-            mu = parameters.bands[0]
-
-            params = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
-
-            voltage_regions = list(
-                self.poisson_system.regions.voltage.tag_points.keys()
-            )
-
-            self.base_hamiltonian, self.linear_ham = tools.linear_Hamiltonian(
-                poisson_params,
-                kwant_params,
-                params,
-                voltage_regions,
-                phis=self.optimal_phis[pair],
-            )
-            depletion, accumulation, uniform = self.dep_acc_regions(twodeg_grid)
-
-            pair_indices = {
-                "left-right": [0, 1],
-                "left-top": [0, 2],
-                "right-top": [1, 2],
-            }
-            coupled_pair = pair_indices[pair]
-            uncoupled_pairs = [
-                pair_indices[index] for index in set(pair_indices) - set([pair])
-            ]
-
+        if find_mlwf:
             _, self.eigenstates = energyspectrum(
                 self.base_hamiltonian, self.linear_ham, self.voltages
             )
             self.mlwf = _wannierize(self.trijunction, self.eigenstates)
 
-            optimize_args = (
-                poisson_params,
-                kwant_params,
-                params,
-                depletion,
-                accumulation,
-                uniform,
-                coupled_pair,
-                uncoupled_pairs,
-                self.base_hamiltonian,
-                self.linear_ham,
-                self.mlwf,
-            )
+    def optimize_gate(self, pairs: list, initial_condition: list, optimal_phis=None):
 
-            return optimize_args
+        if optimal_phis is not None:
+            self.optimal_phis = optimal_phis
+        if hasattr(self, "optimal_phis"):
+            optimal_voltages = {}
+            for initial, pair in zip(initial_condition, pairs):
+                args = self.params(pair, self.optimal_phis)
+                print(f'Optimizing pair {pair}')
+                sol1 = minimize(
+                    cost_function,
+                    initial,
+                    args=tuple(args),
+                    # ftol = 1e-3,
+                    # verbose = 2,
+                    # max_nfev= 15
+                    # bounds = bounds,
+                    method="trust-constr",
+                    options={
+                        "disp": True,
+                        # "verbose": 2,
+                        "initial_tr_radius": 1e-3,
+                        "gtol": 1e0,
+                    },
+                )
+                
+                optimal_voltages[pair] = sol1
+            
+            return optimal_voltages
 
         else:
             print(
                 "Please calculate optimal phases for the nanowires before optimizing the gates"
             )
+            
+    def dep_acc_voltages(self, pair, initial_condition):
+        
+        self.optimize_args[3], self.optimize_args[4], self.optimize_args[5] = self.dep_acc_regions(pair)
+        
+        sol1 = minimize(
+                    dep_acc_cost_fn,
+                    initial_condition,
+                    args=tuple(self.optimize_args[:6]),
+                    method="trust-constr",
+                    options={
+                        "disp": True,
+                        # "verbose": 2,
+                        "initial_tr_radius": 1e-3,
+                        "gtol": 1e0,
+                    },
+                )
+        return sol1.x
 
-    def dep_acc_regions(self, twodeg_grid):
+    def params(self, pair: str, optimal_phis=None, voltages = None):
+        
+        self.pair = pair
+
+        poisson_params = {
+            "poisson_system": self.poisson_system,
+            "linear_problem": self.linear_problem,
+            "site_coords": self.site_coords,
+            "site_indices": self.site_indices,
+        }
+
+        crds = self.site_coords
+        grid_spacing = self.config['device']['grid_spacing']['twoDEG']
+        offset = crds[0]%grid_spacing
+
+        kwant_params = {
+            "offset": offset,
+            "grid_spacing": self.length_unit,
+            "finite_system_object": self.trijunction,
+            "finite_system_params_object": self.f_params,
+        }
+
+        mu = parameters.bands[0]
+
+        param = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
+
+        depletion, accumulation, uniform = self.dep_acc_regions(pair)
+
+        pair_indices = {
+            "left-right": [0, 1],
+            "left-top": [0, 2],
+            "right-top": [1, 2],
+        }
+        coupled_pair = pair_indices[pair]
+        uncoupled_pairs = [
+            pair_indices[index] for index in set(pair_indices) - set([pair])
+        ]
+
+        self.optimize_args = [
+            poisson_params,
+            kwant_params,
+            param,
+            depletion,
+            accumulation,
+            uniform,
+            coupled_pair,
+            uncoupled_pairs
+            ]
+            
+        if optimal_phis is not None:
+            
+            self.optimal_phis = optimal_phis
+            
+            voltage_regions = list(
+                self.poisson_system.regions.voltage.tag_points.keys()
+            )
+            
+            
+            print('Finding linear part of the tight-binding Hamiltonian')
+            self.base_hamiltonian, self.linear_ham = tools.linear_Hamiltonian(
+                poisson_params,
+                kwant_params,
+                param,
+                voltage_regions,
+                phis=self.optimal_phis[pair],
+            )
+            
+            if voltages is not None: self.voltages = voltages
+            
+            _, self.eigenstates = energyspectrum(
+                self.base_hamiltonian, self.linear_ham, self.voltages
+            )
+            
+            if not hasattr(self, "mlwf"):
+                self.mlwf = _wannierize(self.trijunction, self.eigenstates)
+
+            self.optimize_args.append(self.base_hamiltonian)
+            self.optimize_args.append(self.linear_ham)
+            self.optimize_args.append(self.mlwf)
+
+        
+        return self.optimize_args
+        
+
+    def dep_acc_regions(self, pair):
 
         dep_indices = {}
         acc_indices = {}
@@ -314,7 +340,9 @@ class Optimize:
                 )
             )
         )
-
+        
+        twodeg_grid = self.site_indices
+        
         for gate in dep_regions:
             indices = self.voltage_regions[gate]
             center = Polygon(self.grid_points[indices][:, [0, 1]]).centroid.coords
@@ -323,12 +351,7 @@ class Optimize:
             )
             dep_indices[gate] = [closest_coord_index]
 
-        depletion = np.array(
-            [
-                [dep_indices[pair[0]], dep_indices[pair[1]]]
-                for pair in np.split(dep_regions, 3)
-            ]
-        )
+        depletion = [dep_indices[x] for x in dep_regions]
 
         nw_centers = {}
         nw_centers["left"] = np.array(self.geometry["centers"][0]) / self.length_unit
@@ -336,9 +359,14 @@ class Optimize:
         nw_centers["top"] = np.array(self.geometry["centers"][2])
         nw_centers["top"][1] -= self.geometry["nw_l"]
         nw_centers["top"][1] /= self.length_unit
+        
+        
+        for gate in (set(['left', 'right', 'top']) - set(pair.split("-"))):
+            closest_coord_index = _closest_node(nw_centers[gate], self.grid_points[twodeg_grid][:, [0, 1]])
+            depletion.append([closest_coord_index])
 
         accumulation = []
-        for gate in self.pair.split("-"):
+        for gate in pair.split("-"):
             closest_coord_index = _closest_node(
                 nw_centers[gate], self.grid_points[twodeg_grid][:, [0, 1]]
             )
@@ -350,28 +378,34 @@ class Optimize:
 
     def optimalphase(
         self,
-        depleteV,
-        acumulateV,
-        closeV,
-        Cluster,
-        nnodes,
-        cluster_options,
-        cluster_dashboard_link,
+        voltages,
+        Cluster = None,
+        nnodes = None,
+        cluster_options = None,
+        cluster_dashboard_link = None,
+        depleteV = [],
+        acumulateV = [],
+        closeV = [],
     ):
 
         params = parameters.junction_parameters(m_nw=parameters.bands[0] * np.ones(3))
 
         potentials = []
         arms = ["left", "right", "top"]
-        for arm in arms:
-            voltages = _voltage_dict(depleteV, acumulateV, close=closeV, arm=arm)
+        
+        if not len(voltages): 
+            voltages = [_voltage_dict(depleteV, acumulateV, close=closeV, arm=arms[i]) for i in range(3)]
+        elif not isinstance(depleteV, list):
+            voltages = voltages
+        
+        for voltage in voltages:
             charges = {}
             potential = gate_potential(
                 self.poisson_system,
                 self.linear_problem,
                 self.site_coords[:, [0, 1]],
                 self.site_indices,
-                voltages,
+                voltage,
                 charges,
                 offset=self.offset[[0, 1]],
                 grid_spacing=self.length_unit,
@@ -393,7 +427,7 @@ class Optimize:
 
                 cluster.scale(n=nnodes)
                 client = cluster.get_client()
-                print(cluster_dashboard_link + cluster.dashboard_link[17:])
+                # print(cluster_dashboard_link + cluster.dashboard_link[17:])
 
                 i = 0
 
@@ -412,26 +446,46 @@ class Optimize:
                         energies.append(aux)
                     self.phase_results.append(energies)
 
-            max_phis_id = []
-            for pair in self.phase_results:
-                max_phis_id.append(
-                    find_resonances(energies=np.array(pair), n=20, sign=-1, i=-1)[1]
-                )
-            max_phis_id = np.array(max_phis_id).flatten()
-            max_phis = self.phases[max_phis_id] / np.pi
-            self.max_phis = max_phis
-
-            self.optimal_phis = {}
-            self.optimal_phis["left-right"] = [self.max_phis[2] * np.pi, 0]
-            self.optimal_phis["left-center"] = [self.max_phis[1] * np.pi, 0]
-            self.optimal_phis["center-right"] = [0, self.max_phis[0] * np.pi]
-
-            return max_phis
 
         else:
+            
             print(
-                "Do you really want to run the simulations locally in a serial fashion or do you have access to a cluster to run the simulations remotely in parallel fashion ? "
+                "Optimizing phase for three channels in serial fashion. Do you have access to cluster for parallel calculations? "
             )
+            
+            i = 0
+
+            for potential in potentials:
+                print(f'optimizing phase for pair {i}')
+                params.update(potential=potential)
+                solver = _fixed_potential_solver(
+                    self.trijunction, self.f_params, params, eigenvecs=False
+                )
+                energies = []
+                
+                for phi in self.phis[i]:
+                    result = solver(phi)
+                    energies.append(result[0])
+
+                i += 1     
+                self.phase_results.append(energies)
+                
+        max_phis_id = []
+        for pair in self.phase_results:
+            max_phis_id.append(
+                find_resonances(energies=np.array(pair), n=20, sign=-1, i=-1)[1]
+            )
+        max_phis_id = np.array(max_phis_id).flatten()
+        max_phis = self.phases[max_phis_id] / np.pi
+        self.max_phis = max_phis
+
+        self.optimal_phis = {}
+        self.optimal_phis["left-right"] = [self.max_phis[2] * np.pi, 0]
+        self.optimal_phis["left-top"] = [self.max_phis[1] * np.pi, 0]
+        self.optimal_phis["right-top"] = [0, self.max_phis[0] * np.pi]
+
+        return max_phis
+                    
 
     def plot(self, to_plot="POTENTIAL"):
 
@@ -564,8 +618,8 @@ def _projected_operator(operator, eigenstates):
     return projected_operator
 
 
-def _voltage_dict(deplete, accumulate, close=0.0, arm="left"):
-
+def _voltage_dict(deplete, accumulate, close=0.0, arm="left",):
+    
     voltages = {}
     if arm != "":
         for i in range(1, 3):
@@ -579,7 +633,7 @@ def _voltage_dict(deplete, accumulate, close=0.0, arm="left"):
 
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
-
+        
     return voltages
 
 
@@ -621,27 +675,32 @@ def energyspectrum(base_ham, linear_ham, voltages):
 
     return eigenenergies, eigenstates
 
+def dep_acc_cost_fn(x, *argv):
+    
+    if len(x) == 4 :
+        voltages = {}
 
-def cost_function(x, *argv):
-
-    voltages = {}
-
-    voltages["left_1"] = x[0]
-    voltages["left_2"] = voltages["left_1"]
-    voltages["right_1"] = x[1]
-    voltages["right_2"] = voltages["right_1"]
-    voltages["top_1"] = x[2]
-    voltages["top_2"] = voltages["top_1"]
-    voltages["global_accumul"] = x[3]
+        voltages["left_1"] = x[0]
+        voltages["left_2"] = voltages["left_1"]
+        voltages["right_1"] = x[1]
+        voltages["right_2"] = voltages["right_1"]
+        voltages["top_1"] = x[2]
+        voltages["top_2"] = voltages["top_1"]
+        
+        
+    elif len(x) == 2:
+        voltages = {}
+        
+        for arm in ['left', 'right', 'top']:
+            for i in range(2): voltages["arm_"+str(i)] = x[0]
+        
+    voltages["global_accumul"] = x[-1]
     
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
-
+    
     poisson_params, kwant_params, general_params = argv[:3]
     dep_points, acc_points, uniform = argv[3:6]
-    coupled_pair, uncoupled_pairs = argv[6:8]
-    base_hamiltonian, linear_ham = argv[8:10]
-    mlwf = argv[10]
 
     pp = poisson_params
     kp = kwant_params
@@ -663,41 +722,92 @@ def cost_function(x, *argv):
     potential_array = np.array(list(potential.values()))
 
     dep_acc_cost = []
-    barrier_height = []
 
     for i, _ in enumerate(acc_points):
         dep_potential = potential_array[np.hstack(dep_points[i])]
         acc_potential = potential_array[acc_points[i]]
 
-        if acc_potential > general_params["mus_nw"][0]:
+        check_potential = (acc_potential > general_params["mus_nw"][0])
+        if check_potential:
+            print(f'2DEG is at higher potential than the nanowires: {np.where(check_potential)}')
             dep_acc_cost.append(np.abs(acc_potential - general_params["mus_nw"][0]))
-
+        
+        
         if np.any(dep_potential < acc_potential):
+            print("Channel not formed as the potential there is higher than elsewhere")
             dep_acc_cost.append(
                 np.abs(
                     dep_potential[np.where(dep_potential < acc_potential)]
                     - acc_potential
                 )
             )
+            
+    if len(dep_acc_cost):
+        dep_acc_cost = sum(np.hstack(dep_acc_cost)) 
+    else:
+        dep_acc_cost = 0.0
+            
+    return dep_acc_cost
+
+
+
+def cost_function(x, *argv):
+
+    voltages = {}
+
+    voltages["left_1"] = x[0]
+    voltages["left_2"] = voltages["left_1"]
+    voltages["right_1"] = x[1]
+    voltages["right_2"] = voltages["right_1"]
+    voltages["top_1"] = x[2]
+    voltages["top_2"] = voltages["top_1"]
+    voltages["global_accumul"] = x[3]
+    
+    for i in range(6):
+        voltages["dirichlet_" + str(i)] = 0.0
+
+
+    poisson_params, kwant_params, general_params = argv[:3]
+    dep_points, acc_points, uniform = argv[3:6]
+    coupled_pair, uncoupled_pairs = argv[6:8]
+    base_hamiltonian, linear_ham, mlwf = argv[8:11]
+
+    pp = poisson_params
+    kp = kwant_params
+    
+    dep_acc_cost = dep_acc_cost_fn(x, 
+                    poisson_params, 
+                    kwant_params, 
+                    general_params, 
+                    dep_points, 
+                    acc_points, 
+                    uniform
+                   )
+            
 
         # barrier_height.append(sum(np.abs(dep_potential - acc_potential)))
 
-    if len(dep_points) > len(acc_points):
-        dep_potential = potential_array[np.hstack(dep_points[-1])]
-
-        if np.any(dep_potential < general_params["mus_nw"][0]):
-            dep_acc_cost.append(
-                np.abs(
-                    dep_potential[np.where(dep_potential < general_params["mus_nw"][0])]
-                    - general_params["mus_nw"][0]
-                )
-            )
+#     if len(dep_points) > len(acc_points):
+        
+#         dep_potential = potential_array[np.hstack(dep_points[-1])]
+        
+#         check_potential = (dep_potential < general_params["mus_nw"][0])
+#         if np.any(check_potential):
+#             print("Wavefunction leaks to the to-be-depleted channel because the potential is lower there")
+#             print(dep_potential[dep_potential < general_params["mus_nw"][0]] - general_params["mus_nw"][0])
+            
+#             dep_acc_cost.append(
+#                 np.abs(
+#                     dep_potential[np.where(dep_potential < general_params["mus_nw"][0])]
+#                     - general_params["mus_nw"][0]
+#                 )
+#             )
 
     coupling_cost = 0.0
 
-    if len(dep_acc_cost):
+    if dep_acc_cost:
         # print(dep_acc_cost)
-        return sum(np.hstack(dep_acc_cost))
+        return dep_acc_cost
     else:
         uniformity = 0.0
         if len(uniform):
@@ -720,12 +830,13 @@ def cost_function(x, *argv):
 
         coupled_ham = coupled_ham[2:5, 2:5] / general_params["Delta"]
 
-        print(np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]]))
+        # print(np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]]))
 
         coupled_cost = np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]])
 
-        uncoupled_cost = np.abs(
-            coupled_ham[uncoupled_pairs[0][0], uncoupled_pairs[0][1]]
-        ) + np.abs(coupled_ham[uncoupled_pairs[1][0], uncoupled_pairs[1][1]])
+        uncoupled_cost = (np.abs(coupled_ham[uncoupled_pairs[0][0], uncoupled_pairs[0][1]]) + 
+                          np.abs(coupled_ham[uncoupled_pairs[1][0], uncoupled_pairs[1][1]])
+                         )
+        
 
         return (-1 * coupled_cost) + uncoupled_cost + uniformity
