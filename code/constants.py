@@ -1,1 +1,1 @@
-length_unit = 10e-9
+length_unit = 1 #nm

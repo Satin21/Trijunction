@@ -1,5 +1,6 @@
 import numpy as np
-from scipy.constants import electron_mass, hbar
+from scipy.constants import electron_mass, hbar, m_e, eV
+from constants import length_unit
 
 # data extracted from sub_bands.ipynb
 # Zeeman fields for the topological transition at each sub-band
@@ -102,9 +103,11 @@ def junction_parameters(m_nw, m_qd=0.0, bx=b):
     """
     Typical parameters
     """
-
-    a = 10e-9
-    t = hbar**2 / (2 * 0.023 * electron_mass) * (6.24e18)
+    
+    scaling_eV_nm2 = 1 / (eV * (length_unit * 1e-9 ** 2))
+    meff = 0.023 * m_e
+    t = ((hbar) ** 2 / (2 * meff)) * scaling_eV_nm2
+    
     alpha = 0.3e-10
     Delta = 5e-4
     parameters = dict(
@@ -116,7 +119,6 @@ def junction_parameters(m_nw, m_qd=0.0, bx=b):
         B_x=bx,
         phi1=0,
         phi2=0,
-        sigma=0,
-        a=a,
+        sigma=0
     )
     return parameters

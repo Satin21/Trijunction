@@ -65,16 +65,32 @@ def gate_coords(gate_config):
     aux_rectangle_2 = rectangular_gate(
         length=R + 2 * gap, width=R + gap, center=(-R / 2, R / 2 - width / 2)
     )
-
+    
     gates = gates.geoms
+
+    left_1 = _gate_coords(gates[0], common=aux_rectangle_2)
+    right_2 = left_1.copy()
+    right_2[:, 0] *= -1
+    left_2 = _gate_coords(gates[2], difference=aux_rectangle_1)
+    right_1 = left_2.copy()
+    right_1[:, 0] *= -1
+    top_1 = _gate_coords(gates[0], difference=aux_rectangle_2, gap=gap)
+    top_2 = top_1.copy()
+    top_2[:, 0] *= -1
+    
     gates_vertex = [
-        _gate_coords(gates[0], common=aux_rectangle_2),
-        _gate_coords(gates[2], difference=aux_rectangle_1),
-        _gate_coords(gates[2], difference=aux_rectangle_2),
-        _gate_coords(gates[1], common=aux_rectangle_1),
-        _gate_coords(gates[0], difference=aux_rectangle_2, gap=gap),
-        _gate_coords(gates[1], difference=aux_rectangle_1, gap=gap),
+        left_1, left_2, right_1, right_2, top_1, top_2 
     ]
+    
+    
+    # gates_vertex = [
+    #     _gate_coords(gates[0], common=aux_rectangle_2),
+    #     _gate_coords(gates[2], difference=aux_rectangle_1),
+    #     _gate_coords(gates[2], difference=aux_rectangle_2),
+    #     _gate_coords(gates[1], common=aux_rectangle_1),
+    #     _gate_coords(gates[0], difference=aux_rectangle_2, gap=gap),
+    #     _gate_coords(gates[1], difference=aux_rectangle_1, gap=gap),
+    # ]
 
     gate_names = ["left_1", "left_2", "right_1", "right_2", "top_1", "top_2"]
 

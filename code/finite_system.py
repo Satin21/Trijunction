@@ -3,7 +3,7 @@ import kwant.continuum
 import numpy as np
 import tinyarray as ta
 
-a = 10e-9
+from constants import length_unit
 
 hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
 + alpha * k_x * kron(sigma_y, sigma_z)
@@ -12,10 +12,9 @@ hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
 + Delta_im(x,y) * kron(sigma_0, sigma_y)
 + B_x * kron(sigma_y, sigma_0)"""
 
-template = kwant.continuum.discretize(hamiltonian, grid=a)
 
 
-def finite_system(**geometry):
+def finite_system(grid, **geometry):
     """
     Create a kwant builder that describes three wires connected by a cavity as defined in geometry.
     The builder is filled with a discretized continuum hamiltonian.
@@ -98,7 +97,7 @@ def finite_system(**geometry):
 
         return params
 
-    def make_junction(**geometry):
+    def make_junction(grid, **geometry):
         """Create finalized Builder of a rectangle filled with template"""
 
         def rectangle(site):
@@ -107,10 +106,11 @@ def finite_system(**geometry):
                 return True
 
         junction = kwant.Builder()
+        template = kwant.continuum.discretize(hamiltonian, grid = grid)
         junction.fill(template, shape=rectangle, start=[0, 0])
         return junction
 
-    trijunction = make_junction(**geometry)
+    trijunction = make_junction(grid, **geometry)
 
     return trijunction, f_params
 

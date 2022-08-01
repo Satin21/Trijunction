@@ -1,10 +1,10 @@
 import numpy as np
 import sys, os
 
-# sys.path.append(os.path.realpath(sys.path[0] + '/..'))
-# from rootpath import ROOT_DIR
+sys.path.append(os.path.realpath(sys.path[0] + '/..'))
+from rootpath import ROOT_DIR
 
-ROOT_DIR = '/home/srangaswamykup/trijunction_design'
+# ROOT_DIR = '/home/srangaswamykup/trijunction_design'
 
 # pre-defined functions from spin-qubit repository
 sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
