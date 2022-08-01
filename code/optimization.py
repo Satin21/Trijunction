@@ -724,8 +724,7 @@ def dep_acc_cost_fn(x, *argv):
         if check_potential:
             print(f'2DEG is at higher potential than the nanowires: {np.where(check_potential)}')
             dep_acc_cost.append(np.abs(acc_potential - general_params["mus_nw"][0]))
-        
-        
+
         if np.any(dep_potential < acc_potential):
             print("Channel not formed as the potential there is higher than elsewhere")
             dep_acc_cost.append(
@@ -734,36 +733,34 @@ def dep_acc_cost_fn(x, *argv):
                     - acc_potential
                 )
             )
-            
-    if len(dep_acc_cost):
-        dep_acc_cost = sum(np.hstack(dep_acc_cost)) 
-    else:
-        dep_acc_cost = 0.0
-            
-    return dep_acc_cost
 
+    if len(dep_acc_cost):
+        return sum(np.hstack(dep_acc_cost))
+
+    return 0
 
 
 def cost_function(x, *argv):
+    # Unpack argv
+    voltage_keys = {
+        "left_1": 0,
+        "left_2": 0,
+        "right_1": 1,
+        "right_2": 1,
+        "top_1": 2,
+        "top_2": 2,
+        "global_accumul": 3,
+    }
+    voltages = {key: x[index] for key, index in voltage_keys.items()}
 
-    voltages = {}
-
-    voltages["left_1"] = x[0]
-    voltages["left_2"] = voltages["left_1"]
-    voltages["right_1"] = x[1]
-    voltages["right_2"] = voltages["right_1"]
-    voltages["top_1"] = x[2]
-    voltages["top_2"] = voltages["top_1"]
-    voltages["global_accumul"] = x[3]
-    
+    # Boundary conditions on system sides.
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
-
 
     poisson_params, kwant_params, general_params = argv[:3]
     pair = argv[3]
     base_hamiltonian, linear_ham, mlwf = argv[4:]
-    
+
     pair_indices = {
             "left-right": [0, 1],
             "left-top": [0, 2],
@@ -774,44 +771,87 @@ def cost_function(x, *argv):
         pair_indices[index] for index in set(pair_indices) - set([pair])
     ]
 
-    pp = poisson_params
-    kp = kwant_params
-    
-    dep_acc_cost = dep_acc_cost_fn(x, 
-                    poisson_params, 
-                    kwant_params, 
-                    general_params, 
-                    pair
-                   )
-
-    coupling_cost = 0.0
+    dep_acc_cost = dep_acc_cost_fn(
+        x,
+        poisson_params,
+        kwant_params,
+        general_params,
+        pair,
+    )
 
     if dep_acc_cost:
-        # print(dep_acc_cost)
         return dep_acc_cost
-    else:
-        energies, coupled_states = energyspectrum(base_hamiltonian, linear_ham, voltages)
 
-        # Overlap matrix
-        decoupled_states = mlwf
-        S = coupled_states @ decoupled_states.T.conj()
+    energies, coupled_states = energyspectrum(base_hamiltonian, linear_ham, voltages)
 
-        # Unitary matrix using SVD
-        U, _, Vh = svd(S)
-        S_prime = U @ Vh
+    # Overlap matrix
+    decoupled_states = mlwf
+    S = coupled_states @ decoupled_states.T.conj()
 
-        # Transform coupled Hamiltonian to Majorana basis
-        coupled_ham = S_prime.T.conj() @ np.diag(energies) @ S_prime
+    # Unitary matrix using SVD
+    U, _, Vh = svd(S)
+    S_prime = U @ Vh
 
-        coupled_ham = coupled_ham[2:5, 2:5] / general_params["Delta"]
+    # Transform coupled Hamiltonian to Majorana basis
+    coupled_ham = S_prime.T.conj() @ np.diag(energies) @ S_prime
 
-        # print(np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]]))
+    coupled_ham = coupled_ham[2:5, 2:5] / general_params["Delta"]
 
-        coupled_cost = np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]])
+    # print(np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]]))
 
-        uncoupled_cost = (np.abs(coupled_ham[uncoupled_pairs[0][0], uncoupled_pairs[0][1]]) + 
-                          np.abs(coupled_ham[uncoupled_pairs[1][0], uncoupled_pairs[1][1]])
-                         )
-        
+    coupled_cost = -np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]])
 
-        return (-1 * coupled_cost) + uncoupled_cost + uniformity
+    uncoupled_cost = (np.abs(coupled_ham[uncoupled_pairs[0][0], uncoupled_pairs[0][1]]) + 
+                      np.abs(coupled_ham[uncoupled_pairs[1][0], uncoupled_pairs[1][1]])
+                     )
+
+    return coupled_cost + uncoupled_cost
+
+
+def majorana_loss(
+    x,
+    hamiltonian,
+    other_params,
+    x_to_params,
+    reference_wave_functions,
+    scale,
+):
+    """Compute the quality of Majorana coupling in a Kwant system.
+
+    Parameters
+    ----------
+    x : 1d array
+        The vector of parameters to optimize
+    hamiltonian : callable
+        A function for returning the sparse matrix Hamiltonian given parameters.
+    other_params : dict
+        All the extra inputs to the Hamiltonian
+    x_to_params : dict
+        Conversion from x to the inputs to the Hamiltonian
+    reference_wave_functions : 2d array
+        Majorana wave functions. The first two correspond to Majoranas that
+        need to be coupled.
+    scale : float
+        Energy scale to use.
+    """
+    numerical_hamiltonian = hamiltonian(
+        **other_params,
+        **{key: x[index] for key, index in x_to_params.items()}
+    )
+    # https://wiki.quantumtinkerer.group/cookbook.html?highlight=sparse#sparse-diagonalization-with-mumps
+    energies, wave_functions = sparse.linalg.eigh(
+        numerical_hamiltonian,
+        n=len(reference_wave_functions),
+        sigma=0,
+    )
+    S = wave_functions @ reference_wave_functions.T.conj()
+    # Unitarize the overlap matrix
+    U, _, Vh = svd(S)
+    S = U @ Vh
+    transformed_hamiltonian = S.T.conj() @ np.diag(energies / scale) @ S
+    return (
+        # Desired coupling
+        - np.abs(transformed_hamiltonian[0, 1])
+        # Undesired couplings
+        + np.log(np.linalg.norm(transformed_hamiltonian[2:]))
+    )
