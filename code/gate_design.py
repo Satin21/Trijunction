@@ -40,12 +40,12 @@ def gate_coords(gate_config):
     width = gate_config["width"]
     gap = gate_config["gap"]
 
-    R = L / np.sqrt(2)
+    R = np.round(L / np.sqrt(2))
 
     Y = unary_union(
         (
             Polygon(half_disk_gate(R=R, npts=3)).difference(
-                Polygon(half_disk_gate(R=R - width * np.sqrt(2), npts=3))
+                Polygon(half_disk_gate(R=R - np.round(width * np.sqrt(2)), npts=3))
             ),
             Polygon(
                 rectangular_gate(center=(0, R + L / 2 - width), width=width, length=L)
@@ -67,14 +67,30 @@ def gate_coords(gate_config):
     )
 
     gates = gates.geoms
+
+    left_1 = _gate_coords(gates[0], common=aux_rectangle_2)
+    right_2 = left_1.copy()
+    right_2[:, 0] *= -1
+    left_2 = _gate_coords(gates[2], difference=aux_rectangle_1)
+    right_1 = left_2.copy()
+    right_1[:, 0] *= -1
+    top_1 = _gate_coords(gates[0], difference=aux_rectangle_2, gap=gap)
+    top_2 = top_1.copy()
+    top_2[:, 0] *= -1
+    
     gates_vertex = [
-        _gate_coords(gates[0], common=aux_rectangle_2),
-        _gate_coords(gates[2], difference=aux_rectangle_1),
-        _gate_coords(gates[2], difference=aux_rectangle_2),
-        _gate_coords(gates[1], common=aux_rectangle_1),
-        _gate_coords(gates[0], difference=aux_rectangle_2, gap=gap),
-        _gate_coords(gates[1], difference=aux_rectangle_1, gap=gap),
+        left_1, left_2, right_1, right_2, top_1, top_2 
     ]
+    
+    
+    # gates_vertex = [
+    #     _gate_coords(gates[0], common=aux_rectangle_2),
+    #     _gate_coords(gates[2], difference=aux_rectangle_1),
+    #     _gate_coords(gates[2], difference=aux_rectangle_2),
+    #     _gate_coords(gates[1], common=aux_rectangle_1),
+    #     _gate_coords(gates[0], difference=aux_rectangle_2, gap=gap),
+    #     _gate_coords(gates[1], difference=aux_rectangle_1, gap=gap),
+    # ]
 
     gate_names = ["left_1", "left_2", "right_1", "right_2", "top_1", "top_2"]
 

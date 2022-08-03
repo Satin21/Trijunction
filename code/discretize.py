@@ -1,10 +1,10 @@
 import numpy as np
 import sys, os
 
-# sys.path.append(os.path.realpath(sys.path[0] + '/..'))
-# from rootpath import ROOT_DIR
+sys.path.append(os.path.realpath(sys.path[0] + '/..'))
+from rootpath import ROOT_DIR
 
-ROOT_DIR = '/home/srangaswamykup/trijunction_design'
+# ROOT_DIR = '/home/srangaswamykup/trijunction_design'
 
 # pre-defined functions from spin-qubit repository
 sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
@@ -15,6 +15,8 @@ from layout import (
     SimpleChargeLayer,
     TwoDEGLayer,
 )
+
+
 from gate_design import gate_coords
 
 
@@ -112,22 +114,27 @@ def discretize_heterostructure(config, boundaries):
             z_bottom=height,
         )
     )
+    
+    height += thickness_accumulation_gate
 
     ## Surround the device with gates for applying Dirichlet boundary condition
 
     thickness_gate = device_config["thickness"]["gates"]
-    grid_spacing_gate = device_config["grid_spacing"]["gate"]
+    grid_spacing_gate = device_config["grid_spacing"]["gate"] * 10
     thickness_gate = thickness_gate + (grid_spacing_gate / 10)
 
-    height = sum(layer.thickness for layer in layout.layers)
+    # height = sum(layer.thickness for layer in layout.layers)
+    
+    assert -(thickness["substrate"] + thickness['twoDEG']/2) == layout.z_bottom
+    
     zmin = layout.z_bottom - margin[2]
-    zmax = layout.z_bottom + height + margin[2]
+    zmax = height + margin[2]
 
     xmin, xmax, ymin, ymax = (
-        -total_length / 2 - margin[0],
-        total_length / 2 + margin[0],
-        -total_width / 2 - margin[1],
-        total_width / 2 + margin[1],
+        -total_width / 2 - margin[0],
+        total_width / 2 + margin[0],
+        - margin[1],
+        total_length + margin[1],
     )
 
     centers = np.array(
@@ -165,6 +172,8 @@ def discretize_heterostructure(config, boundaries):
         thickness_gate,
         thickness_gate,
     ]
+    
+    # return centers, lengths, widths, heights
 
     names = []
     for i, data in enumerate(zip(centers, lengths, widths, heights)):

@@ -11,15 +11,16 @@ from scipy.optimize import minimize
 from discretize import discretize_heterostructure
 from finite_system import finite_system
 from tools import dict_update, find_resonances
-from constants import length_unit
+from constants import scale
 from solvers import sort_eigen
 import parameters
 import tools
+from mumps_sparse_diag import sparse_diag
 
-ROOT_DIR = '/home/srangaswamykup/trijunction_design'
-
-# sys.path.append(os.path.realpath(sys.path[0] + '/..'))
-# from rootpath import ROOT_DIR
+# ROOT_DIR = '/home/srangaswamykup/trijunction_design'
+# 
+sys.path.append(os.path.realpath(sys.path[0] + '/..'))
+from rootpath import ROOT_DIR
 
 # pre-defined functions from spin-qubit repository
 sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
@@ -40,7 +41,7 @@ def _closest_node(node, nodes):
     return np.argmin(dist)
 
 
-def configuration(config, length_unit=1e-8, change_config=[], poisson_system = []):
+def configuration(config, change_config=[], poisson_system = []):
 
     if len(change_config):
         for local_config in change_config:
@@ -50,9 +51,9 @@ def configuration(config, length_unit=1e-8, change_config=[], poisson_system = [
     gate_config = config["gate"]
 
     L = config["gate"]["L"]
-    R = L / np.sqrt(2)
+    R = np.round(L / np.sqrt(2))
 
-    # Boundaries within Poisson region
+    # Boundaries of Poisson region
     xmax = R
     xmin = -xmax
     ymin = 0
@@ -68,30 +69,27 @@ def configuration(config, length_unit=1e-8, change_config=[], poisson_system = [
     return config, boundaries, poisson_system, linear_problem
 
 
-def kwantsystem(config, boundaries, length_unit=1e-8):
+def kwantsystem(config, boundaries, scale=1e-8):
 
     L = config["gate"]["L"]
-    R = L / np.sqrt(2)
+    R = np.round(L / np.sqrt(2))
 
-    a = length_unit
-    R_a = R * a
-    width_a = config["gate"]["width"] * a
-    l = config["kwant"]["nwl"] * a
-    w = config["kwant"]["nww"] * a
+    a = scale
+    width = config["gate"]["width"]
+    l = config["kwant"]["nwl"]
+    w = config["kwant"]["nww"]
 
-    boundaries = list(boundaries.values())
-
-    boundaries = np.array(boundaries) * a
+    boundaries = np.array(list(boundaries.values()))
 
     geometry = {
-        "nw_l": l,
-        "nw_w": w,
-        "s_w": boundaries[1] - boundaries[0],
-        "s_l": boundaries[3] - boundaries[2],
+        "nw_l": l * a,
+        "nw_w": w * a,
+        "s_w": (boundaries[1] - boundaries[0]) * a,
+        "s_l": (boundaries[3] - boundaries[2]) * a,
         "centers": [
-            [-R_a + width_a / np.sqrt(2), 0],
-            [-(-R_a + width_a / np.sqrt(2)), 0],
-            [0, boundaries[3] + l - a],
+            [np.round(-R + width / np.sqrt(2)) * a, 0],
+            [np.round(-(-R + width / np.sqrt(2))) * a, 0],
+            [0, ((boundaries[3] + l) * a) - a],
         ],
     }
 
@@ -113,7 +111,7 @@ class Optimize:
         poisson_system,
         linear_problem,
         boundaries=[],
-        length_unit=1e-8,
+        scale=1e-8,
         arm=(
             "left_1",
             "left_2",
@@ -123,11 +121,11 @@ class Optimize:
             "top_2",
             "global_accumul",
         ),
-        volt=(-1e-3, -1e-3, -1e-3, -1e-3, -1e-3, -1e-3, 4e-3),
+        volt=(-0.0014, -0.0014, -0.0014, -0.0014, -0.0014, -0.0014, 3e-3),
     ):
 
         self.config = config
-        self.length_unit = length_unit
+        self.scale = scale
         self.boundaries = boundaries
 
         self.poisson_system = poisson_system
@@ -138,10 +136,10 @@ class Optimize:
             self.voltages["dirichlet_" + str(i)] = 0.0
         
         if self.poisson_system:
-            self.setconfig()
-
+            self.setconfig()        
+            
     def setconfig(self):
-
+        
         device_config = self.config["device"]
 
         self.site_coords, self.site_indices = discrete_system_coordinates(
@@ -162,8 +160,12 @@ class Optimize:
         self.offset = crds[0] % grid_spacing
 
         self.geometry, self.trijunction, self.f_params = kwantsystem(
-            self.config, self.boundaries, self.length_unit
+            self.config, self.boundaries, self.scale
         )
+        
+        ## Check whether the two sides of the device are symmetric around x = zero
+        self.check_symmetry()
+        
         self.densityoperator = kwant.operator.Density(self.trijunction, np.eye(4))
 
     def changeconfig(self, change_config, poisson_system = []):
@@ -173,11 +175,38 @@ class Optimize:
             self.poisson_system,
             self.linear_problem,
         ) = configuration(
-            self.config, length_unit=self.length_unit, change_config=change_config, poisson_system = poisson_system
+            self.config, change_config=change_config, poisson_system = poisson_system
         )
         self.setconfig()
 
         return self.config, self.boundaries, self.poisson_system, self.linear_problem
+    
+    def check_symmetry(self):
+        charges = {}
+        pot = gate_potential(
+                self.poisson_system,
+                self.linear_problem,
+                self.site_coords[:, [0, 1]],
+                self.site_indices,
+                self.voltages,
+                charges,
+                offset = self.offset[[0, 1]],
+                scale = 1
+            )
+        pot.update((x, y*-1) for x, y in pot.items())
+        
+        mu = parameters.bands[0]
+        params = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
+        params.update(potential=pot)
+
+        f_mu = self.f_params(**params)['mu']
+
+        def diff_f_mu(x, y):
+            return f_mu(x, y) - f_mu(-x, y)
+
+        kwant_sites = np.array(list(site.pos for site in self.trijunction.sites))
+
+        assert max([diff_f_mu(*site) for site in kwant_sites]) < 1e-9
 
     def set_voltages(self, newvoltages, find_mlwf = False):
         self.voltages.update(dict(zip(self.voltage_regions, newvoltages)))
@@ -257,7 +286,7 @@ class Optimize:
 
         kwant_params = {
             "offset": offset,
-            "grid_spacing": self.length_unit,
+            "grid_spacing": self.scale,
             "finite_system_object": self.trijunction,
             "finite_system_params_object": self.f_params,
         }
@@ -354,11 +383,11 @@ class Optimize:
         depletion = [dep_indices[x] for x in dep_regions]
 
         nw_centers = {}
-        nw_centers["left"] = np.array(self.geometry["centers"][0]) / self.length_unit
-        nw_centers["right"] = np.array(self.geometry["centers"][1]) / self.length_unit
+        nw_centers["left"] = np.array(self.geometry["centers"][0]) / self.scale
+        nw_centers["right"] = np.array(self.geometry["centers"][1]) / self.scale
         nw_centers["top"] = np.array(self.geometry["centers"][2])
         nw_centers["top"][1] -= self.geometry["nw_l"]
-        nw_centers["top"][1] /= self.length_unit
+        nw_centers["top"][1] /= self.scale
         
         
         for gate in (set(['left', 'right', 'top']) - set(pair.split("-"))):
@@ -408,7 +437,7 @@ class Optimize:
                 voltage,
                 charges,
                 offset=self.offset[[0, 1]],
-                grid_spacing=self.length_unit,
+                grid_spacing=self.scale,
             )
 
             # potential.update((x, y*-1) for x, y in potential.items())
@@ -418,7 +447,7 @@ class Optimize:
 
         phis1 = [{"phi1": phi, "phi2": 0} for phi in self.phases]
         phis2 = [{"phi2": phi, "phi1": 0} for phi in self.phases]
-        self.phis = [phis2, phis2, phis1]
+        phis = [phis2, phis2, phis1]
 
         self.phase_results = []
 
@@ -429,17 +458,15 @@ class Optimize:
                 client = cluster.get_client()
                 # print(cluster_dashboard_link + cluster.dashboard_link[17:])
 
-                i = 0
 
-                for potential in potentials:
+                for potential, phi in zip(potentials, phis):
                     params.update(potential=potential)
                     solver = _fixed_potential_solver(
                         self.trijunction, self.f_params, params, eigenvecs=False
                     )
-                    args_db = db.from_sequence(self.phis[i])
+                    args_db = db.from_sequence(phi)
                     result = args_db.map(solver).compute()
 
-                    i += 1
 
                     energies = []
                     for aux, _ in result:
@@ -453,9 +480,9 @@ class Optimize:
                 "Optimizing phase for three channels in serial fashion. Do you have access to cluster for parallel calculations? "
             )
             
-            i = 0
 
-            for potential in potentials:
+            for i, data  in enumerate(zip(potentials, phis)):
+                potential, phi = data
                 print(f'optimizing phase for pair {i}')
                 params.update(potential=potential)
                 solver = _fixed_potential_solver(
@@ -463,11 +490,10 @@ class Optimize:
                 )
                 energies = []
                 
-                for phi in self.phis[i]:
-                    result = solver(phi)
+                for p in phi:
+                    result = solver(p)
                     energies.append(result[0])
-
-                i += 1     
+                    
                 self.phase_results.append(energies)
                 
         max_phis_id = []
@@ -508,7 +534,7 @@ class Optimize:
                 self.voltages,
                 charges,
                 offset=self.offset,
-                grid_spacing=self.length_unit,
+                grid_spacing=self.scale,
             )
 
             coordinates = np.array(list(clean_potential.keys()))
@@ -520,7 +546,7 @@ class Optimize:
             plt.figure()
             plt.imshow(
                 np.rot90(Z),
-                extent=np.array(list(self.boundaries.values())) * length_unit,
+                extent=np.array(list(self.boundaries.values())) * scale,
                 cmap="magma_r",
             )
             plt.colorbar()
@@ -700,7 +726,8 @@ def dep_acc_cost_fn(x, *argv):
         voltages["dirichlet_" + str(i)] = 0.0
     
     poisson_params, kwant_params, general_params = argv[:3]
-    dep_points, acc_points, uniform = argv[3:6]
+    pair = argv[3]
+    
 
     pp = poisson_params
     kp = kwant_params
@@ -714,8 +741,14 @@ def dep_acc_cost_fn(x, *argv):
         voltages,
         charges,
         offset=kp["offset"],
-        grid_spacing=kp["grid_spacing"],
+        grid_spacing=length_unit,
     )
+    
+    coords = np.array(list(potential.keys()))
+    dep_points, acc_points = dep_acc_regions(pp['poisson_system'], 
+                                             kp['geometry'],
+                                             pair, 
+                                             coords)
 
     potential.update((x, y * -1) for x, y in potential.items())
 
@@ -731,8 +764,7 @@ def dep_acc_cost_fn(x, *argv):
         if check_potential:
             print(f'2DEG is at higher potential than the nanowires: {np.where(check_potential)}')
             dep_acc_cost.append(np.abs(acc_potential - general_params["mus_nw"][0]))
-        
-        
+
         if np.any(dep_potential < acc_potential):
             print("Channel not formed as the potential there is higher than elsewhere")
             dep_acc_cost.append(
@@ -741,102 +773,126 @@ def dep_acc_cost_fn(x, *argv):
                     - acc_potential
                 )
             )
-            
-    if len(dep_acc_cost):
-        dep_acc_cost = sum(np.hstack(dep_acc_cost)) 
-    else:
-        dep_acc_cost = 0.0
-            
-    return dep_acc_cost
 
+    if len(dep_acc_cost):
+        return sum(np.hstack(dep_acc_cost))
+
+    return 0
 
 
 def cost_function(x, *argv):
+    # Unpack argv
+    voltage_keys = {
+        "left_1": 0,
+        "left_2": 0,
+        "right_1": 1,
+        "right_2": 1,
+        "top_1": 2,
+        "top_2": 2,
+        "global_accumul": 3,
+    }
+    voltages = {key: x[index] for key, index in voltage_keys.items()}
 
-    voltages = {}
-
-    voltages["left_1"] = x[0]
-    voltages["left_2"] = voltages["left_1"]
-    voltages["right_1"] = x[1]
-    voltages["right_2"] = voltages["right_1"]
-    voltages["top_1"] = x[2]
-    voltages["top_2"] = voltages["top_1"]
-    voltages["global_accumul"] = x[3]
-    
+    # Boundary conditions on system sides.
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
 
-
     poisson_params, kwant_params, general_params = argv[:3]
-    dep_points, acc_points, uniform = argv[3:6]
-    coupled_pair, uncoupled_pairs = argv[6:8]
-    base_hamiltonian, linear_ham, mlwf = argv[8:11]
+    pair = argv[3]
+    base_hamiltonian, linear_ham, mlwf = argv[4:]
 
-    pp = poisson_params
-    kp = kwant_params
-    
-    dep_acc_cost = dep_acc_cost_fn(x, 
-                    poisson_params, 
-                    kwant_params, 
-                    general_params, 
-                    dep_points, 
-                    acc_points, 
-                    uniform
-                   )
-            
+    pair_indices = {
+            "left-right": [0, 1],
+            "left-top": [0, 2],
+            "right-top": [1, 2],
+        }
+    coupled_pair = pair_indices[pair]
+    uncoupled_pairs = [
+        pair_indices[index] for index in set(pair_indices) - set([pair])
+    ]
 
-        # barrier_height.append(sum(np.abs(dep_potential - acc_potential)))
-
-#     if len(dep_points) > len(acc_points):
-        
-#         dep_potential = potential_array[np.hstack(dep_points[-1])]
-        
-#         check_potential = (dep_potential < general_params["mus_nw"][0])
-#         if np.any(check_potential):
-#             print("Wavefunction leaks to the to-be-depleted channel because the potential is lower there")
-#             print(dep_potential[dep_potential < general_params["mus_nw"][0]] - general_params["mus_nw"][0])
-            
-#             dep_acc_cost.append(
-#                 np.abs(
-#                     dep_potential[np.where(dep_potential < general_params["mus_nw"][0])]
-#                     - general_params["mus_nw"][0]
-#                 )
-#             )
-
-    coupling_cost = 0.0
+    dep_acc_cost = dep_acc_cost_fn(
+        x,
+        poisson_params,
+        kwant_params,
+        general_params,
+        pair,
+    )
 
     if dep_acc_cost:
-        # print(dep_acc_cost)
         return dep_acc_cost
-    else:
-        uniformity = 0.0
-        if len(uniform):
-            uniformity = np.abs(
-                potential_array[uniform[0]] - potential_array[uniform[1]]
-            )
 
-        energies, coupled_states = energyspectrum(base_hamiltonian, linear_ham, voltages)
+    energies, coupled_states = energyspectrum(base_hamiltonian, linear_ham, voltages)
 
-        # Overlap matrix
-        decoupled_states = mlwf
-        S = coupled_states @ decoupled_states.T.conj()
+    # Overlap matrix
+    decoupled_states = mlwf
+    S = coupled_states @ decoupled_states.T.conj()
 
-        # Unitary matrix using SVD
-        U, _, Vh = svd(S)
-        S_prime = U @ Vh
+    # Unitary matrix using SVD
+    U, _, Vh = svd(S)
+    S_prime = U @ Vh
 
-        # Transform coupled Hamiltonian to Majorana basis
-        coupled_ham = S_prime.T.conj() @ np.diag(energies) @ S_prime
+    # Transform coupled Hamiltonian to Majorana basis
+    coupled_ham = S_prime.T.conj() @ np.diag(energies) @ S_prime
 
-        coupled_ham = coupled_ham[2:5, 2:5] / general_params["Delta"]
+    coupled_ham = coupled_ham[2:5, 2:5] / general_params["Delta"]
 
-        # print(np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]]))
+    # print(np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]]))
 
-        coupled_cost = np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]])
+    coupled_cost = -np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]])
 
-        uncoupled_cost = (np.abs(coupled_ham[uncoupled_pairs[0][0], uncoupled_pairs[0][1]]) + 
-                          np.abs(coupled_ham[uncoupled_pairs[1][0], uncoupled_pairs[1][1]])
-                         )
-        
+    uncoupled_cost = (np.abs(coupled_ham[uncoupled_pairs[0][0], uncoupled_pairs[0][1]]) + 
+                      np.abs(coupled_ham[uncoupled_pairs[1][0], uncoupled_pairs[1][1]])
+                     )
 
-        return (-1 * coupled_cost) + uncoupled_cost + uniformity
+    return coupled_cost + uncoupled_cost
+
+
+def majorana_loss(
+    x,
+    hamiltonian,
+    other_params,
+    x_to_params,
+    reference_wave_functions,
+    scale,
+):
+    """Compute the quality of Majorana coupling in a Kwant system.
+
+    Parameters
+    ----------
+    x : 1d array
+        The vector of parameters to optimize
+    hamiltonian : callable
+        A function for returning the sparse matrix Hamiltonian given parameters.
+    other_params : dict
+        All the extra inputs to the Hamiltonian
+    x_to_params : dict
+        Conversion from x to the inputs to the Hamiltonian
+    reference_wave_functions : 2d array
+        Majorana wave functions. The first two correspond to Majoranas that
+        need to be coupled.
+    scale : float
+        Energy scale to use.
+    """
+    numerical_hamiltonian = hamiltonian(
+        **other_params,
+        **{key: x[index] for key, index in x_to_params.items()}
+    )
+    # https://wiki.quantumtinkerer.group/cookbook.html?highlight=sparse#sparse-diagonalization-with-mumps
+    energies, wave_functions = sparse_diag(
+        numerical_hamiltonian,
+        k=len(reference_wave_functions),
+        sigma=0,
+    )
+    S = wave_functions @ reference_wave_functions.T.conj()
+    # Unitarize the overlap matrix
+    U, _, Vh = svd(S)
+    S = U @ Vh
+    transformed_hamiltonian = S.T.conj() @ np.diag(energies / scale) @ S
+    return (
+        # Desired coupling
+        - np.abs(transformed_hamiltonian[0, 1])
+        # Undesired couplings
+        + np.log(np.linalg.norm(transformed_hamiltonian[2:]))
+    )
+

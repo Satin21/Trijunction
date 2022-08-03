@@ -3,7 +3,8 @@ import kwant.continuum
 import numpy as np
 import tinyarray as ta
 
-a = 10e-9
+from constants import scale
+rounding_limit = 3
 
 hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
 + alpha * k_x * kron(sigma_y, sigma_z)
@@ -12,7 +13,7 @@ hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
 + Delta_im(x,y) * kron(sigma_0, sigma_y)
 + B_x * kron(sigma_y, sigma_0)"""
 
-template = kwant.continuum.discretize(hamiltonian, grid=a)
+template = kwant.continuum.discretize(hamiltonian, grid=scale)
 
 
 def finite_system(**geometry):
@@ -117,6 +118,6 @@ def finite_system(**geometry):
 
 def get_potential(potential):
     def f(x, y):
-        return potential[ta.array([x, y])]
+        return potential[ta.array(np.round(np.array([x, y])/scale, rounding_limit))]
 
     return f
