@@ -40,12 +40,12 @@ def gate_coords(gate_config):
     width = gate_config["width"]
     gap = gate_config["gap"]
 
-    R = L / np.sqrt(2)
+    R = np.round(L / np.sqrt(2))
 
     Y = unary_union(
         (
             Polygon(half_disk_gate(R=R, npts=3)).difference(
-                Polygon(half_disk_gate(R=R - width * np.sqrt(2), npts=3))
+                Polygon(half_disk_gate(R=R - np.round(width * np.sqrt(2)), npts=3))
             ),
             Polygon(
                 rectangular_gate(center=(0, R + L / 2 - width), width=width, length=L)
