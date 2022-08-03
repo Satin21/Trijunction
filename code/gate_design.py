@@ -65,7 +65,7 @@ def gate_coords(gate_config):
     aux_rectangle_2 = rectangular_gate(
         length=R + 2 * gap, width=R + gap, center=(-R / 2, R / 2 - width / 2)
     )
-    
+
     gates = gates.geoms
 
     left_1 = _gate_coords(gates[0], common=aux_rectangle_2)

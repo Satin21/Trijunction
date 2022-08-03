@@ -1,1 +1,1 @@
-length_unit = 1 #nm
+scale = 10e-9

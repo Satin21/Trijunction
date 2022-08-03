@@ -11,16 +11,16 @@ from scipy.optimize import minimize
 from discretize import discretize_heterostructure
 from finite_system import finite_system
 from tools import dict_update, find_resonances
-from constants import length_unit
+from constants import scale
 from solvers import sort_eigen
 import parameters
 import tools
+from mumps_sparse_diag import sparse_diag
 
 # ROOT_DIR = '/home/srangaswamykup/trijunction_design'
-
+# 
 sys.path.append(os.path.realpath(sys.path[0] + '/..'))
 from rootpath import ROOT_DIR
-
 
 # pre-defined functions from spin-qubit repository
 sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
@@ -51,9 +51,9 @@ def configuration(config, change_config=[], poisson_system = []):
     gate_config = config["gate"]
 
     L = config["gate"]["L"]
-    R = L / np.sqrt(2)
+    R = np.round(L / np.sqrt(2))
 
-    # Boundaries within Poisson region
+    # Boundaries of Poisson region
     xmax = R
     xmin = -xmax
     ymin = 0
@@ -69,36 +69,33 @@ def configuration(config, change_config=[], poisson_system = []):
     return config, boundaries, poisson_system, linear_problem
 
 
-def kwantsystem(config, boundaries, grid=1):
+def kwantsystem(config, boundaries, scale=1e-8):
 
     L = config["gate"]["L"]
-    R = L / np.sqrt(2)
+    R = np.round(L / np.sqrt(2))
 
-    a = length_unit
-    R_a = R * a
-    width_a = config["gate"]["width"] * a
-    l = config["kwant"]["nwl"] * a
-    w = config["kwant"]["nww"] * a
+    a = scale
+    width = config["gate"]["width"]
+    l = config["kwant"]["nwl"]
+    w = config["kwant"]["nww"]
 
-    boundaries = list(boundaries.values())
-
-    boundaries = np.array(boundaries) * a
+    boundaries = np.array(list(boundaries.values()))
 
     geometry = {
-        "nw_l": l,
-        "nw_w": w,
-        "s_w": boundaries[1] - boundaries[0],
-        "s_l": boundaries[3] - boundaries[2],
+        "nw_l": l * a,
+        "nw_w": w * a,
+        "s_w": (boundaries[1] - boundaries[0]) * a,
+        "s_l": (boundaries[3] - boundaries[2]) * a,
         "centers": [
-            [-R_a + width_a / np.sqrt(2), 0],
-            [-(-R_a + width_a / np.sqrt(2)), 0],
-            [0, boundaries[3] + l - a],
+            [np.round(-R + width / np.sqrt(2)) * a, 0],
+            [np.round(-(-R + width / np.sqrt(2))) * a, 0],
+            [0, ((boundaries[3] + l) * a) - a],
         ],
     }
 
     ## Discretized Kwant system
 
-    trijunction, f_params = finite_system(grid, **geometry)
+    trijunction, f_params = finite_system(**geometry)
     trijunction = trijunction.finalized()
 
     trijunction = trijunction
@@ -114,7 +111,7 @@ class Optimize:
         poisson_system,
         linear_problem,
         boundaries=[],
-        grid=1,
+        scale=1e-8,
         arm=(
             "left_1",
             "left_2",
@@ -124,11 +121,11 @@ class Optimize:
             "top_2",
             "global_accumul",
         ),
-        volt=(-1e-3, -1e-3, -1e-3, -1e-3, -1e-3, -1e-3, 4e-3),
+        volt=(-0.0014, -0.0014, -0.0014, -0.0014, -0.0014, -0.0014, 3e-3),
     ):
 
         self.config = config
-        self.grid = grid
+        self.scale = scale
         self.boundaries = boundaries
 
         self.poisson_system = poisson_system
@@ -139,10 +136,10 @@ class Optimize:
             self.voltages["dirichlet_" + str(i)] = 0.0
         
         if self.poisson_system:
-            self.setconfig()
-
+            self.setconfig()        
+            
     def setconfig(self):
-
+        
         device_config = self.config["device"]
 
         self.site_coords, self.site_indices = discrete_system_coordinates(
@@ -163,8 +160,12 @@ class Optimize:
         self.offset = crds[0] % grid_spacing
 
         self.geometry, self.trijunction, self.f_params = kwantsystem(
-            self.config, self.boundaries, self.grid
+            self.config, self.boundaries, self.scale
         )
+        
+        ## Check whether the two sides of the device are symmetric around x = zero
+        self.check_symmetry()
+        
         self.densityoperator = kwant.operator.Density(self.trijunction, np.eye(4))
 
     def changeconfig(self, change_config, poisson_system = []):
@@ -179,6 +180,33 @@ class Optimize:
         self.setconfig()
 
         return self.config, self.boundaries, self.poisson_system, self.linear_problem
+    
+    def check_symmetry(self):
+        charges = {}
+        pot = gate_potential(
+                self.poisson_system,
+                self.linear_problem,
+                self.site_coords[:, [0, 1]],
+                self.site_indices,
+                self.voltages,
+                charges,
+                offset = self.offset[[0, 1]],
+                scale = 1
+            )
+        pot.update((x, y*-1) for x, y in pot.items())
+        
+        mu = parameters.bands[0]
+        params = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
+        params.update(potential=pot)
+
+        f_mu = self.f_params(**params)['mu']
+
+        def diff_f_mu(x, y):
+            return f_mu(x, y) - f_mu(-x, y)
+
+        kwant_sites = np.array(list(site.pos for site in self.trijunction.sites))
+
+        assert max([diff_f_mu(*site) for site in kwant_sites]) < 1e-9
 
     def set_voltages(self, newvoltages, find_mlwf = False):
         self.voltages.update(dict(zip(self.voltage_regions, newvoltages)))
@@ -225,11 +253,12 @@ class Optimize:
             
     def dep_acc_voltages(self, pair, initial_condition):
         
+        self.optimize_args[3], self.optimize_args[4], self.optimize_args[5] = self.dep_acc_regions(pair)
         
         sol1 = minimize(
                     dep_acc_cost_fn,
                     initial_condition,
-                    args=tuple(self.optimize_args[:4]),
+                    args=tuple(self.optimize_args[:6]),
                     method="trust-constr",
                     options={
                         "disp": True,
@@ -256,9 +285,8 @@ class Optimize:
         offset = crds[0]%grid_spacing
 
         kwant_params = {
-            "geometry": self.geometry,
             "offset": offset,
-            "grid_spacing": self.grid,
+            "grid_spacing": self.scale,
             "finite_system_object": self.trijunction,
             "finite_system_params_object": self.f_params,
         }
@@ -267,12 +295,27 @@ class Optimize:
 
         param = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
 
-        
+        depletion, accumulation, uniform = self.dep_acc_regions(pair)
+
+        pair_indices = {
+            "left-right": [0, 1],
+            "left-top": [0, 2],
+            "right-top": [1, 2],
+        }
+        coupled_pair = pair_indices[pair]
+        uncoupled_pairs = [
+            pair_indices[index] for index in set(pair_indices) - set([pair])
+        ]
+
         self.optimize_args = [
             poisson_params,
             kwant_params,
             param,
-            pair
+            depletion,
+            accumulation,
+            uniform,
+            coupled_pair,
+            uncoupled_pairs
             ]
             
         if optimal_phis is not None:
@@ -310,7 +353,58 @@ class Optimize:
         return self.optimize_args
         
 
-    
+    def dep_acc_regions(self, pair):
+
+        dep_indices = {}
+        acc_indices = {}
+
+        dep_regions = np.array(
+            list(
+                filter(
+                    None,
+                    [
+                        x if x.split("_")[0] not in ["global", "dirichlet"] else None
+                        for x in self.voltage_regions.keys()
+                    ],
+                )
+            )
+        )
+        
+        twodeg_grid = self.site_indices
+        
+        for gate in dep_regions:
+            indices = self.voltage_regions[gate]
+            center = Polygon(self.grid_points[indices][:, [0, 1]]).centroid.coords
+            closest_coord_index = _closest_node(
+                list(center)[0], self.grid_points[twodeg_grid][:, [0, 1]]
+            )
+            dep_indices[gate] = [closest_coord_index]
+
+        depletion = [dep_indices[x] for x in dep_regions]
+
+        nw_centers = {}
+        nw_centers["left"] = np.array(self.geometry["centers"][0]) / self.scale
+        nw_centers["right"] = np.array(self.geometry["centers"][1]) / self.scale
+        nw_centers["top"] = np.array(self.geometry["centers"][2])
+        nw_centers["top"][1] -= self.geometry["nw_l"]
+        nw_centers["top"][1] /= self.scale
+        
+        
+        for gate in (set(['left', 'right', 'top']) - set(pair.split("-"))):
+            closest_coord_index = _closest_node(nw_centers[gate], self.grid_points[twodeg_grid][:, [0, 1]])
+            depletion.append([closest_coord_index])
+
+        accumulation = []
+        for gate in pair.split("-"):
+            closest_coord_index = _closest_node(
+                nw_centers[gate], self.grid_points[twodeg_grid][:, [0, 1]]
+            )
+            accumulation.append([[closest_coord_index]])
+
+        uniform = []
+
+        return depletion, accumulation, uniform
+
     def optimalphase(
         self,
         voltages,
@@ -343,10 +437,10 @@ class Optimize:
                 voltage,
                 charges,
                 offset=self.offset[[0, 1]],
-                grid_spacing=length_unit,
+                grid_spacing=self.scale,
             )
 
-            potential.update((x, -y) for x, y in potential.items())
+            # potential.update((x, y*-1) for x, y in potential.items())
             potentials.append(potential)
 
         self.phases = np.linspace(0, 2, 100) * np.pi
@@ -364,6 +458,7 @@ class Optimize:
                 client = cluster.get_client()
                 # print(cluster_dashboard_link + cluster.dashboard_link[17:])
 
+
                 for potential, phi in zip(potentials, phis):
                     params.update(potential=potential)
                     solver = _fixed_potential_solver(
@@ -372,19 +467,22 @@ class Optimize:
                     args_db = db.from_sequence(phi)
                     result = args_db.map(solver).compute()
 
+
                     energies = []
                     for aux, _ in result:
                         energies.append(aux)
                     self.phase_results.append(energies)
 
+
         else:
+            
             print(
                 "Optimizing phase for three channels in serial fashion. Do you have access to cluster for parallel calculations? "
             )
             
-            i = 0
 
-            for potential in potentials:
+            for i, data  in enumerate(zip(potentials, phis)):
+                potential, phi = data
                 print(f'optimizing phase for pair {i}')
                 params.update(potential=potential)
                 solver = _fixed_potential_solver(
@@ -392,17 +490,16 @@ class Optimize:
                 )
                 energies = []
                 
-                for phi in self.phis[i]:
-                    result = solver(phi)
+                for p in phi:
+                    result = solver(p)
                     energies.append(result[0])
-
-                i += 1     
+                    
                 self.phase_results.append(energies)
                 
         max_phis_id = []
         for pair in self.phase_results:
             max_phis_id.append(
-                find_resonances(energies=np.array(pair), n=nnodes, sign=-1, i=-1)[1]
+                find_resonances(energies=np.array(pair), n=20, sign=-1, i=-1)[1]
             )
         max_phis_id = np.array(max_phis_id).flatten()
         max_phis = self.phases[max_phis_id] / np.pi
@@ -437,7 +534,7 @@ class Optimize:
                 self.voltages,
                 charges,
                 offset=self.offset,
-                grid_spacing=length_unit,
+                grid_spacing=self.scale,
             )
 
             coordinates = np.array(list(clean_potential.keys()))
@@ -449,7 +546,7 @@ class Optimize:
             plt.figure()
             plt.imshow(
                 np.rot90(Z),
-                extent=np.array(list(self.boundaries.values())) * length_unit,
+                extent=np.array(list(self.boundaries.values())) * scale,
                 cmap="magma_r",
             )
             plt.colorbar()
@@ -603,63 +700,6 @@ def energyspectrum(base_ham, linear_ham, voltages):
     eigenstates = eigvec.T[:, lowest_e_indices].T
 
     return eigenenergies, eigenstates
-
-def dep_acc_regions(poisson_system, geometry, pair, coords):
-
-    dep_indices = {}
-    acc_indices = {}
-    
-    voltage_regions = poisson_system.regions.voltage.tag_points
-    grid_points = poisson_system.grid.points
-    
-    for key, value in voltage_regions.items():
-        if key.split("_")[0] not in ["dirichlet"]:
-            voltage_regions[key] = value
-
-    dep_regions = np.array(
-        list(
-            filter(
-                None,
-                [
-                    x if x.split("_")[0] not in ["global", "dirichlet"] else None
-                    for x in voltage_regions.keys()
-                ],
-            )
-        )
-    )
-
-    for gate in dep_regions:
-        indices = voltage_regions[gate]
-        center = Polygon(grid_points[indices][:, [0, 1]]).centroid.coords
-        closest_coord_index = _closest_node(
-            list(center)[0], coords[:, [0, 1]]
-        )
-        dep_indices[gate] = [closest_coord_index]
-
-    depletion = [dep_indices[x] for x in dep_regions]
-
-    nw_centers = {}
-    nw_centers["left"] = np.array(geometry["centers"][0])
-    nw_centers["right"] = np.array(geometry["centers"][1])
-    nw_centers["top"] = np.array(geometry["centers"][2])
-    nw_centers["top"][1] -= geometry["nw_l"]
-
-
-    for gate in (set(['left', 'right', 'top']) - set(pair.split("-"))):
-        closest_coord_index = _closest_node(nw_centers[gate], coords[:, [0, 1]])
-        depletion.append([closest_coord_index])
-
-    accumulation = []
-    for gate in pair.split("-"):
-        closest_coord_index = _closest_node(
-            nw_centers[gate], coords[:, [0, 1]]
-        )
-        accumulation.append([[closest_coord_index]])
-
-    uniform = []
-
-    return depletion, accumulation
-
 
 def dep_acc_cost_fn(x, *argv):
     
@@ -839,9 +879,9 @@ def majorana_loss(
         **{key: x[index] for key, index in x_to_params.items()}
     )
     # https://wiki.quantumtinkerer.group/cookbook.html?highlight=sparse#sparse-diagonalization-with-mumps
-    energies, wave_functions = sparse.linalg.eigh(
+    energies, wave_functions = sparse_diag(
         numerical_hamiltonian,
-        n=len(reference_wave_functions),
+        k=len(reference_wave_functions),
         sigma=0,
     )
     S = wave_functions @ reference_wave_functions.T.conj()
@@ -855,3 +895,4 @@ def majorana_loss(
         # Undesired couplings
         + np.log(np.linalg.norm(transformed_hamiltonian[2:]))
     )
+
