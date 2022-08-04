@@ -4,6 +4,8 @@ import json
 import sys, os
 import kwant
 import scipy.sparse.linalg as sla
+from scipy.sparse import identity
+import kwant.linalg.mumps as mumps
 import dask.bag as db
 from shapely.geometry.polygon import Polygon
 from scipy.linalg import svd
@@ -15,7 +17,8 @@ from constants import scale, majorana_pair_indices, voltage_keys
 from solvers import sort_eigen
 import parameters
 import tools
-from mumps_sparse_diag import sparse_diag
+
+
 
 # ROOT_DIR = '/home/srangaswamykup/trijunction_design'
 # 
@@ -653,35 +656,62 @@ def optimalphase(
     assert np.abs(sum([1 - max_phis[0], 1 - max_phis[1]])) < 1e-9 # check whether the max phases are symmetric for LC and RC pairs
 
     return max_phis, phase_results
-                    
+                
 
-def hamiltonian(base_ham, linear_ham, voltages):
+def hamiltonian(
+    kwant_system, 
+    linear_terms,
+    **params, 
+):
     summed_ham = sum(
-        [linear_ham[key] * voltages[key] for key, value in linear_ham.items()]
+        [linear_terms[key] * params[key] for key, value in linear_terms.items()]
+    )
+    
+    base_ham = kwant_system.hamiltonian_submatrix(
+        sparse=True,
+        params=params
     )
 
     return base_ham + summed_ham
 
-def diagonalize(hamiltonian,
-                voltages,
-                base_ham,
-                linear_ham,
-                no_eigenvalues = 3,
-               ):
-    numerical_hamiltonian = hamiltonian(
-        base_ham,
-        linear_ham,
-        voltages   
-    )
-    eigval, eigvec = sort_eigen(
-        sparse_diag(numerical_hamiltonian.tocsc(),
-                    k=no_eigenvalues,
-                    sigma=0, 
-                    return_eigenvectors = eigenvecs
-                   )
-    )
+
+
+class LuInv(sla.LinearOperator):
+    def __init__(self, A):
+        inst = mumps.MUMPSContext()
+        inst.analyze(A, ordering='pord')
+        inst.factor(A)
+        self.solve = inst.solve
+        sla.LinearOperator.__init__(self, A.dtype, A.shape)
+
+    def _matvec(self, x):
+        return self.solve(x.astype(self.dtype))
+
+
+def eigsh(
+    A,
+    k,
+    sigma=0,
+    return_eigenvectors=False,
+    **kwargs,
+):
+    """Call sla.eigsh with mumps support and sorting.
+
+    Please see scipy.sparse.linalg.eigsh for documentation.
+    """
+
+    opinv = LuInv(A - sigma * identity(matrix.shape[0]))
+    out = sla.eigsh(A, k, sigma=sigma, OPinv=opinv, return_eigenvectors=return_eigenvectors, **kwargs)
     
-    return eigval, eigvec
+    if not return_eigenvectors:
+        return np.sort(out)
+    
+    evals, evecs = out
+    idx = np.argsort(evals)
+    evals = evals[idx]
+    evecs = evecs[:, idx]
+    return evals, evecs
+
 
 def dep_acc_regions(poisson_system, 
                     site_indices: np.ndarray, 
@@ -872,23 +902,26 @@ def majorana_loss(
         Energy scale to use.
     """
     
-    energies, wave_functions = diagonalize(hamiltonian,
-                                           {key: x[index] for key, index in x_to_params.items()},
-                                           **other_params, 
-                                           no_eigenvalues = len(reference_wave_functions)
-                                          )
+    numerical_hamiltonian = hamiltonian(
+        **other_params,
+        **{key: x[index] for key, index in x_to_params.items()}
+    )
     
-    
+    energies, wave_functions = eigsh(
+        numerical_hamiltonian.tocsc(),
+        len(reference_wave_functions),
+        sigma=0,
+        return_eigenvectors=True
+    )
     
     S = wave_functions @ reference_wave_functions.T.conj()
     # Unitarize the overlap matrix
     U, _, Vh = svd(S)
     S = U @ Vh
     transformed_hamiltonian = S.T.conj() @ np.diag(energies / scale) @ S
+    desired = np.abs(transformed_hamiltonian[0, 1])
+    undesired = np.linalg.norm(transformed_hamiltonian[2:])
     return (
-        # Desired coupling
-        - np.abs(transformed_hamiltonian[0, 1])
-        # Undesired couplings
-        + np.log(np.linalg.norm(transformed_hamiltonian[2:]))
+        - desired + np.log(undesired/desired + 1e-3) 
     )
 
