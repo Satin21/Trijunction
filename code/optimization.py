@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 from discretize import discretize_heterostructure
 from finite_system import finite_system
 from tools import dict_update, find_resonances
-from constants import scale
+from constants import scale, majorana_pair_indices, voltage_keys
 from solvers import sort_eigen
 import parameters
 import tools
@@ -30,8 +30,7 @@ from utility import wannier_basis
 from tools import linear_Hamiltonian
 
 
-global optimization_args
-optimization_args = None
+
 
 
 def _closest_node(node, nodes):
@@ -208,13 +207,19 @@ class Optimize:
 
         assert max([diff_f_mu(*site) for site in kwant_sites]) < 1e-9
 
-    def set_voltages(self, newvoltages, find_mlwf = False):
+    def set_voltages(self, newvoltages):
         self.voltages.update(dict(zip(self.voltage_regions, newvoltages)))
-        if find_mlwf:
-            _, self.eigenstates = energyspectrum(
-                self.base_hamiltonian, self.linear_ham, self.voltages
-            )
-            self.mlwf = _wannierize(self.trijunction, self.eigenstates)
+#         if find_mlwf:
+#             eigval, eigvec = diagonalize(
+#                 hamiltonian,
+#                 {self.base_ham, self.linear_ham}, 
+#                 self.voltages,
+#                 no_eigenvalues = 6 
+#             )
+#             lowest_e_indices = np.argsort(np.abs(eigval))
+#             self.eigenstates = eigvec.T[:, lowest_e_indices].T
+            
+#             self.mlwf = _wannierize(self.trijunction, self.eigenstates)
 
     def optimize_gate(self, pairs: list, initial_condition: list, optimal_phis=None):
 
@@ -223,7 +228,7 @@ class Optimize:
         if hasattr(self, "optimal_phis"):
             optimal_voltages = {}
             for initial, pair in zip(initial_condition, pairs):
-                args = self.params(pair, self.optimal_phis)
+                args = list(self.params(pair, self.optimal_phis).values())
                 print(f'Optimizing pair {pair}')
                 sol1 = minimize(
                     cost_function,
@@ -253,12 +258,21 @@ class Optimize:
             
     def dep_acc_voltages(self, pair, initial_condition):
         
-        self.optimize_args[3], self.optimize_args[4], self.optimize_args[5] = self.dep_acc_regions(pair)
+        self.optimize_args['dep_region'], self.optimize_args['acc_region'] = dep_acc_regions(self.poisson_system, 
+                                                                       self.site_indices, 
+                                                                       self.geometry, 
+                                                                       pair)
+
+        args = tuple(self.optimize_args['poisson'],
+                     self.optimize_args['general_param']['mus_nw'],
+                     self.optimize_args['dep_region'],
+                     self.optimize_args['acc_region']
+                     )
         
         sol1 = minimize(
-                    dep_acc_cost_fn,
+                    potential_shape_loss,
                     initial_condition,
-                    args=tuple(self.optimize_args[:6]),
+                    args=args,
                     method="trust-constr",
                     options={
                         "disp": True,
@@ -272,20 +286,20 @@ class Optimize:
     def params(self, pair: str, optimal_phis=None, voltages = None):
         
         self.pair = pair
+        
+        crds = self.site_coords
+        grid_spacing = self.config['device']['grid_spacing']['twoDEG']
+        offset = crds[0]%grid_spacing
 
         poisson_params = {
             "poisson_system": self.poisson_system,
             "linear_problem": self.linear_problem,
             "site_coords": self.site_coords,
             "site_indices": self.site_indices,
+            "offset": offset
         }
 
-        crds = self.site_coords
-        grid_spacing = self.config['device']['grid_spacing']['twoDEG']
-        offset = crds[0]%grid_spacing
-
         kwant_params = {
-            "offset": offset,
             "grid_spacing": self.scale,
             "finite_system_object": self.trijunction,
             "finite_system_params_object": self.f_params,
@@ -294,29 +308,21 @@ class Optimize:
         mu = parameters.bands[0]
 
         param = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
+        
 
-        depletion, accumulation, uniform = self.dep_acc_regions(pair)
+        depletion, accumulation = dep_acc_regions(self.poisson_system, 
+                        self.site_indices, 
+                        self.geometry, 
+                        pair)
 
-        pair_indices = {
-            "left-right": [0, 1],
-            "left-top": [0, 2],
-            "right-top": [1, 2],
-        }
-        coupled_pair = pair_indices[pair]
-        uncoupled_pairs = [
-            pair_indices[index] for index in set(pair_indices) - set([pair])
-        ]
-
-        self.optimize_args = [
-            poisson_params,
-            kwant_params,
-            param,
-            depletion,
-            accumulation,
-            uniform,
-            coupled_pair,
-            uncoupled_pairs
-            ]
+        self.optimize_args = {
+            'poisson': poisson_params,
+            'kwant': kwant_params,
+            'general_param': param,
+            'majorana_pair': pair,
+            'dep_region': depletion,
+            'acc_region': accumulation
+            }
             
         if optimal_phis is not None:
             
@@ -328,7 +334,7 @@ class Optimize:
             
             
             print('Finding linear part of the tight-binding Hamiltonian')
-            self.base_hamiltonian, self.linear_ham = tools.linear_Hamiltonian(
+            base_ham, linear_ham = linear_Hamiltonian(
                 poisson_params,
                 kwant_params,
                 param,
@@ -338,182 +344,30 @@ class Optimize:
             
             if voltages is not None: self.voltages = voltages
             
-            _, self.eigenstates = energyspectrum(
-                self.base_hamiltonian, self.linear_ham, self.voltages
+            
+            eigval, eigvec = diagonalize(
+                hamiltonian,
+                self.voltages,
+                **{'base_ham': base_ham, 'linear_ham': linear_ham},
+                no_eigenvalues = 6
             )
+            
+            lowest_e_indices = np.argsort(np.abs(eigval))
+            self.eigenstates = eigvec.T[:, lowest_e_indices].T
+
             
             if not hasattr(self, "mlwf"):
                 self.mlwf = _wannierize(self.trijunction, self.eigenstates)
 
-            self.optimize_args.append(self.base_hamiltonian)
-            self.optimize_args.append(self.linear_ham)
-            self.optimize_args.append(self.mlwf)
+            self.optimize_args['base_ham'] = base_ham
+            self.optimize_args['linear_ham'] = linear_ham
+            self.optimize_args['mlwf'] = self.mlwf
 
         
         return self.optimize_args
         
-
-    def dep_acc_regions(self, pair):
-
-        dep_indices = {}
-        acc_indices = {}
-
-        dep_regions = np.array(
-            list(
-                filter(
-                    None,
-                    [
-                        x if x.split("_")[0] not in ["global", "dirichlet"] else None
-                        for x in self.voltage_regions.keys()
-                    ],
-                )
-            )
-        )
-        
-        twodeg_grid = self.site_indices
-        
-        for gate in dep_regions:
-            indices = self.voltage_regions[gate]
-            center = Polygon(self.grid_points[indices][:, [0, 1]]).centroid.coords
-            closest_coord_index = _closest_node(
-                list(center)[0], self.grid_points[twodeg_grid][:, [0, 1]]
-            )
-            dep_indices[gate] = [closest_coord_index]
-
-        depletion = [dep_indices[x] for x in dep_regions]
-
-        nw_centers = {}
-        nw_centers["left"] = np.array(self.geometry["centers"][0]) / self.scale
-        nw_centers["right"] = np.array(self.geometry["centers"][1]) / self.scale
-        nw_centers["top"] = np.array(self.geometry["centers"][2])
-        nw_centers["top"][1] -= self.geometry["nw_l"]
-        nw_centers["top"][1] /= self.scale
-        
-        
-        for gate in (set(['left', 'right', 'top']) - set(pair.split("-"))):
-            closest_coord_index = _closest_node(nw_centers[gate], self.grid_points[twodeg_grid][:, [0, 1]])
-            depletion.append([closest_coord_index])
-
-        accumulation = []
-        for gate in pair.split("-"):
-            closest_coord_index = _closest_node(
-                nw_centers[gate], self.grid_points[twodeg_grid][:, [0, 1]]
-            )
-            accumulation.append([[closest_coord_index]])
-
-        uniform = []
-
-        return depletion, accumulation, uniform
-
-    def optimalphase(
-        self,
-        voltages,
-        Cluster = None,
-        nnodes = None,
-        cluster_options = None,
-        cluster_dashboard_link = None,
-        depleteV = [],
-        acumulateV = [],
-        closeV = [],
-    ):
-
-        params = parameters.junction_parameters(m_nw=parameters.bands[0] * np.ones(3))
-
-        potentials = []
-        arms = ["left", "right", "top"]
-        
-        if not len(voltages): 
-            voltages = [_voltage_dict(depleteV, acumulateV, close=closeV, arm=arms[i]) for i in range(3)]
-        elif not isinstance(depleteV, list):
-            voltages = voltages
-        
-        for voltage in voltages:
-            charges = {}
-            potential = gate_potential(
-                self.poisson_system,
-                self.linear_problem,
-                self.site_coords[:, [0, 1]],
-                self.site_indices,
-                voltage,
-                charges,
-                offset=self.offset[[0, 1]],
-                grid_spacing=self.scale,
-            )
-
-            # potential.update((x, y*-1) for x, y in potential.items())
-            potentials.append(potential)
-
-        self.phases = np.linspace(0, 2, 100) * np.pi
-
-        phis1 = [{"phi1": phi, "phi2": 0} for phi in self.phases]
-        phis2 = [{"phi2": phi, "phi1": 0} for phi in self.phases]
-        phis = [phis2, phis2, phis1]
-
-        self.phase_results = []
-
-        if Cluster is not None:
-            with Cluster(cluster_options) as cluster:
-
-                cluster.scale(n=nnodes)
-                client = cluster.get_client()
-                # print(cluster_dashboard_link + cluster.dashboard_link[17:])
-
-
-                for potential, phi in zip(potentials, phis):
-                    params.update(potential=potential)
-                    solver = _fixed_potential_solver(
-                        self.trijunction, self.f_params, params, eigenvecs=False
-                    )
-                    args_db = db.from_sequence(phi)
-                    result = args_db.map(solver).compute()
-
-
-                    energies = []
-                    for aux, _ in result:
-                        energies.append(aux)
-                    self.phase_results.append(energies)
-
-
-        else:
-            
-            print(
-                "Optimizing phase for three channels in serial fashion. Do you have access to cluster for parallel calculations? "
-            )
-            
-
-            for i, data  in enumerate(zip(potentials, phis)):
-                potential, phi = data
-                print(f'optimizing phase for pair {i}')
-                params.update(potential=potential)
-                solver = _fixed_potential_solver(
-                    self.trijunction, self.f_params, params, eigenvecs=False
-                )
-                energies = []
-                
-                for p in phi:
-                    result = solver(p)
-                    energies.append(result[0])
-                    
-                self.phase_results.append(energies)
-                
-        max_phis_id = []
-        for pair in self.phase_results:
-            max_phis_id.append(
-                find_resonances(energies=np.array(pair), n=20, sign=-1, i=-1)[1]
-            )
-        max_phis_id = np.array(max_phis_id).flatten()
-        max_phis = self.phases[max_phis_id] / np.pi
-        self.max_phis = max_phis
-
-        self.optimal_phis = {}
-        self.optimal_phis["left-right"] = [self.max_phis[2] * np.pi, 0]
-        self.optimal_phis["left-top"] = [self.max_phis[1] * np.pi, 0]
-        self.optimal_phis["right-top"] = [0, self.max_phis[0] * np.pi]
-
-        return max_phis
-                    
-
-    def plot(self, to_plot="POTENTIAL"):
+    
+    def plot(self, to_plot="POTENTIAL", phase_results = []):
 
         if to_plot == "GATES":
             for name, indices in self.voltage_regions.items():
@@ -534,7 +388,6 @@ class Optimize:
                 self.voltages,
                 charges,
                 offset=self.offset,
-                grid_spacing=self.scale,
             )
 
             coordinates = np.array(list(clean_potential.keys()))
@@ -567,35 +420,39 @@ class Optimize:
                     "Please calculate the tight binding Hamiltonian and separate in into linear and non-linear part before this step."
                 )
 
-        if to_plot == "PHASE_DIAGRAM":
+        if to_plot == "PHASE_DIAGRAM" and hasattr(self, optimal_phis) and len(phase_results):
+            
             fig, ax = plt.subplots(ncols=3, figsize=(15, 5))
             fig.tight_layout(w_pad=5)
             i = 0
             titles = ["left arm depleted", "right arm depleted", "top arm depleted"]
             phis_labels = [r"$\phi_{center}$", r"$\phi_{center}$", r"$\phi_{right}$"]
-            peaks = []
+            
+            phases = np.linspace(0, 2, 100) * np.pi
+
+            phis1 = [{"phi1": phi, "phi2": 0} for phi in phases]
+            phis2 = [{"phi2": phi, "phi1": 0} for phi in phases]
+            phis = [phis2, phis2, phis1]
 
             params = parameters.junction_parameters(
                 m_nw=parameters.bands[0] * np.ones(3)
             )
             solver = _fixed_potential_solver(
-                self.trijunction, self.f_params, params, eigenvecs=False
+                self.trijunction, self.f_params, params, eigenvecs=False, n = 6
             )
-            self.topo_gap = solver(self.phis[0][0])[0][-1]
+            topo_gap = solver(phis[0][0])[0][-1]
 
-            try:
-                for energies in self.phase_results:
-                    energies = np.array(energies)
-                    for level in energies.T:
-                        ax[i].plot(self.phases / np.pi, level / self.topo_gap)
-                    ax[i].vlines(x=max_phis[i], ymin=-1, ymax=1)
-                    ax[i].set_title(titles[i])
-                    ax[i].set_ylabel(r"E[$\Delta^*]$")
-                    ax[i].set_xlabel(phis_labels[i])
-                    i += 1
-            except AttributeError:
-                print("Please calculate optimal phases first")
 
+            for energies in phase_results:
+                energies = np.array(energies)
+                for level in energies.T:
+                    ax[i].plot(phases / np.pi, level / topo_gap)
+                ax[i].vlines(x=max_phis[i], ymin=-1, ymax=1)
+                ax[i].set_title(titles[i])
+                ax[i].set_ylabel(r"E[$\Delta^*]$")
+                ax[i].set_xlabel(phis_labels[i])
+                i += 1
+    
         if to_plot == "WANNIER_FUNCTIONS":
             fig, ax = plt.subplots(1, 6, figsize=(5, 5), sharey=True)
             for i in range(6):
@@ -663,20 +520,24 @@ def _voltage_dict(deplete, accumulate, close=0.0, arm="left",):
     return voltages
 
 
-def _fixed_potential_solver(kwant_syst, f_params, base_params, eigenvecs=False, n=20):
+def _fixed_potential_solver(kwant_syst, f_params, base_params, eigenvecs=False, n=6):
     def solver(extra_params):
 
         base_params.update(extra_params)
         ham_mat = kwant_syst.hamiltonian_submatrix(
             sparse=True, params=f_params(**base_params)
         )
-
+    
         if eigenvecs:
-            evals, evecs = sort_eigen(sla.eigsh(ham_mat.tocsc(), k=n, sigma=0))
+            evals, evecs = sort_eigen(sparse_diag(
+                ham_mat.tocsc(), 
+                k=n, 
+                sigma=0)
+                                     )
         else:
-            evals = np.sort(
-                sla.eigsh(ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors=eigenvecs)
-            )
+            evals = np.sort(sparse_diag(
+                ham_mat.tocsc(), k=n, sigma=0, return_eigenvectors = eigenvecs)
+                           )
             evecs = []
 
         return evals, evecs
@@ -684,35 +545,208 @@ def _fixed_potential_solver(kwant_syst, f_params, base_params, eigenvecs=False, 
     return solver
 
 
-def energyspectrum(base_ham, linear_ham, voltages):
+def optimalphase(
+    voltages,
+    no_eigenvalues,
+    poisson_system, 
+    linear_problem, 
+    site_coords,
+    site_indices,
+    offset,
+    kwant_sys,
+    kwant_params,
+    general_params,
+    Cluster = None,
+    nnodes = None,
+    cluster_options = None,
+    cluster_dashboard_link = None,
+    depleteV = [],
+    acumulateV = [],
+    closeV = [],
+):
+
+
+    potentials = []
+    arms = ["left", "right", "top"]
+
+    if not len(voltages): 
+        voltages = [_voltage_dict(depleteV, acumulateV, close=closeV, arm=arms[i]) for i in range(3)]
+    elif not isinstance(depleteV, list):
+        voltages = voltages
+    
+    
+    for voltage in voltages:
+        charges = {}
+        potential = gate_potential(
+            poisson_system,
+            linear_problem,
+            site_coords[:, [0, 1]],
+            site_indices,
+            voltage,
+            charges,
+            offset=offset[[0, 1]]
+        )
+
+        # potential.update((x, y*-1) for x, y in potential.items())
+        potentials.append(potential)
+
+    phases = np.linspace(0, 2, 100) * np.pi
+
+    phis1 = [{"phi1": phi, "phi2": 0} for phi in phases]
+    phis2 = [{"phi2": phi, "phi1": 0} for phi in phases]
+    phis = [phis2, phis2, phis1]
+
+    phase_results = []
+
+    if Cluster is not None:
+        with Cluster(cluster_options) as cluster:
+
+            cluster.scale(n=nnodes)
+            client = cluster.get_client()
+            print(cluster_dashboard_link + cluster.dashboard_link[17:])
+
+            for potential, phi in zip(potentials, phis):
+                general_params.update(potential=potential)
+                solver = _fixed_potential_solver(
+                    kwant_sys, kwant_params, general_params, eigenvecs=False, n = no_eigenvalues
+                )
+                args_db = db.from_sequence(phi)
+                result = args_db.map(solver).compute()
+
+
+                energies = []
+                for aux, _ in result:
+                    energies.append(aux)
+                phase_results.append(energies)
+
+
+    else:
+
+        print(
+            "Optimizing phase for three channels in serial fashion. Do you have access to cluster for parallel calculations? "
+        )
+
+
+        for i, data  in enumerate(zip(potentials, phis)):
+            potential, phi = data
+            print(f'optimizing phase for pair {i}')
+            general_params.update(potential=potential)
+            solver = _fixed_potential_solver(
+                trijunction, f_params, general_params, eigenvecs=False, n = no_eigenvalues
+            )
+            energies = []
+
+            for p in phi:
+                result = solver(p)
+                energies.append(result[0])
+
+            phase_results.append(energies)
+
+    max_phis_id = []
+    for pair in phase_results:
+        max_phis_id.append(
+            find_resonances(energies=np.array(pair), n=no_eigenvalues, sign=1, i=2)[1]
+        )
+    max_phis_id = np.array(max_phis_id).flatten()
+    max_phis = phases[max_phis_id] / np.pi
+
+    assert np.abs(sum([1 - max_phis[0], 1 - max_phis[1]])) < 1e-9 # check whether the max phases are symmetric for LC and RC pairs
+
+    return max_phis, phase_results
+                    
+
+def hamiltonian(base_ham, linear_ham, voltages):
     summed_ham = sum(
         [linear_ham[key] * voltages[key] for key, value in linear_ham.items()]
     )
 
-    tight_binding_hamiltonian = base_ham + summed_ham
+    return base_ham + summed_ham
 
+def diagonalize(hamiltonian,
+                voltages,
+                base_ham,
+                linear_ham,
+                no_eigenvalues = 3,
+               ):
+    numerical_hamiltonian = hamiltonian(
+        base_ham,
+        linear_ham,
+        voltages   
+    )
     eigval, eigvec = sort_eigen(
-        sla.eigsh(tight_binding_hamiltonian.tocsc(), k=12, sigma=0)
+        sparse_diag(numerical_hamiltonian.tocsc(),
+                    k=no_eigenvalues,
+                    sigma=0, 
+                    return_eigenvectors = eigenvecs
+                   )
+    )
+    
+    return eigval, eigvec
+
+def dep_acc_regions(poisson_system, 
+                    site_indices: np.ndarray, 
+                    kwant_geometry:dict, 
+                    pair: str):
+
+    dep_indices = {}
+    acc_indices = {}
+    
+    voltage_regions = poisson_system.regions.voltage.tag_points
+    grid_points = poisson_system.grid.points
+
+    dep_regions = np.array(
+        list(
+            filter(
+                None,
+                [
+                    x if x.split("_")[0] not in ["global", "dirichlet"] else None
+                    for x in voltage_regions.keys()
+                ],
+            )
+        )
     )
 
-    lowest_e_indices = np.argsort(np.abs(eigval))[:6]
-    eigenenergies = eigval[lowest_e_indices]
-    eigenstates = eigvec.T[:, lowest_e_indices].T
+    twodeg_grid = site_indices
 
-    return eigenenergies, eigenstates
+    for gate in dep_regions:
+        indices = voltage_regions[gate]
+        center = Polygon(grid_points[indices][:, [0, 1]]).centroid.coords
+        closest_coord_index = _closest_node(
+            list(center)[0], grid_points[twodeg_grid][:, [0, 1]]
+        )
+        dep_indices[gate] = [closest_coord_index]
 
-def dep_acc_cost_fn(x, *argv):
+    depletion = [dep_indices[x] for x in dep_regions]
+    
+    geometry = kwant_geometry
+    
+    nw_centers = {}
+    nw_centers["left"] = np.array(geometry["centers"][0]) / scale
+    nw_centers["right"] = np.array(geometry["centers"][1]) / scale
+    nw_centers["top"] = np.array(geometry["centers"][2])
+    nw_centers["top"][1] -= geometry["nw_l"]
+    nw_centers["top"][1] /= scale
+
+
+    for gate in (set(['left', 'right', 'top']) - set(pair.split("-"))):
+        closest_coord_index = _closest_node(nw_centers[gate], grid_points[twodeg_grid][:, [0, 1]])
+        depletion.append([closest_coord_index])
+
+    accumulation = []
+    for gate in pair.split("-"):
+        closest_coord_index = _closest_node(
+            nw_centers[gate], grid_points[twodeg_grid][:, [0, 1]]
+        )
+        accumulation.append([[closest_coord_index]])
+
+
+    return depletion, accumulation
+
+
+def potential_shape_loss(x, *argv):
     
     if len(x) == 4 :
-        voltages = {}
-
-        voltages["left_1"] = x[0]
-        voltages["left_2"] = voltages["left_1"]
-        voltages["right_1"] = x[1]
-        voltages["right_2"] = voltages["right_1"]
-        voltages["top_1"] = x[2]
-        voltages["top_2"] = voltages["top_1"]
-        
+        voltages = {key: x[index] for key, index in voltage_keys.items()}
         
     elif len(x) == 2:
         voltages = {}
@@ -720,17 +754,12 @@ def dep_acc_cost_fn(x, *argv):
         for arm in ['left', 'right', 'top']:
             for i in range(2): voltages["arm_"+str(i)] = x[0]
         
-    voltages["global_accumul"] = x[-1]
+        voltages["global_accumul"] = x[-1]
     
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
     
-    poisson_params, kwant_params, general_params = argv[:3]
-    pair = argv[3]
-    
-
-    pp = poisson_params
-    kp = kwant_params
+    pp, mus_nw, dep_points, acc_points = argv
 
     charges = {}
     potential = gate_potential(
@@ -740,15 +769,9 @@ def dep_acc_cost_fn(x, *argv):
         pp["site_indices"],
         voltages,
         charges,
-        offset=kp["offset"],
-        grid_spacing=length_unit,
+        offset=pp["offset"],
     )
     
-    coords = np.array(list(potential.keys()))
-    dep_points, acc_points = dep_acc_regions(pp['poisson_system'], 
-                                             kp['geometry'],
-                                             pair, 
-                                             coords)
 
     potential.update((x, y * -1) for x, y in potential.items())
 
@@ -760,10 +783,10 @@ def dep_acc_cost_fn(x, *argv):
         dep_potential = potential_array[np.hstack(dep_points[i])]
         acc_potential = potential_array[acc_points[i]]
 
-        check_potential = (acc_potential > general_params["mus_nw"][0])
+        check_potential = (acc_potential > mus_nw[0])
         if check_potential:
             print(f'2DEG is at higher potential than the nanowires: {np.where(check_potential)}')
-            dep_acc_cost.append(np.abs(acc_potential - general_params["mus_nw"][0]))
+            dep_acc_cost.append(np.abs(acc_potential - mus_nw[0]))
 
         if np.any(dep_potential < acc_potential):
             print("Channel not formed as the potential there is higher than elsewhere")
@@ -780,72 +803,46 @@ def dep_acc_cost_fn(x, *argv):
     return 0
 
 
+
 def cost_function(x, *argv):
     # Unpack argv
-    voltage_keys = {
-        "left_1": 0,
-        "left_2": 0,
-        "right_1": 1,
-        "right_2": 1,
-        "top_1": 2,
-        "top_2": 2,
-        "global_accumul": 3,
-    }
+    
     voltages = {key: x[index] for key, index in voltage_keys.items()}
 
     # Boundary conditions on system sides.
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
 
-    poisson_params, kwant_params, general_params = argv[:3]
-    pair = argv[3]
-    base_hamiltonian, linear_ham, mlwf = argv[4:]
-
-    pair_indices = {
-            "left-right": [0, 1],
-            "left-top": [0, 2],
-            "right-top": [1, 2],
-        }
-    coupled_pair = pair_indices[pair]
-    uncoupled_pairs = [
-        pair_indices[index] for index in set(pair_indices) - set([pair])
-    ]
-
-    dep_acc_cost = dep_acc_cost_fn(
+    poisson_params, kwant_params, general_params, pair, dep_points, acc_points = argv[:6]
+    
+    potential_cost = potential_shape_loss(
         x,
         poisson_params,
-        kwant_params,
-        general_params,
-        pair,
+        general_params['mus_nw'],
+        dep_points,
+        acc_points
     )
 
-    if dep_acc_cost:
-        return dep_acc_cost
-
-    energies, coupled_states = energyspectrum(base_hamiltonian, linear_ham, voltages)
-
-    # Overlap matrix
-    decoupled_states = mlwf
-    S = coupled_states @ decoupled_states.T.conj()
-
-    # Unitary matrix using SVD
-    U, _, Vh = svd(S)
-    S_prime = U @ Vh
-
-    # Transform coupled Hamiltonian to Majorana basis
-    coupled_ham = S_prime.T.conj() @ np.diag(energies) @ S_prime
-
-    coupled_ham = coupled_ham[2:5, 2:5] / general_params["Delta"]
-
-    # print(np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]]))
-
-    coupled_cost = -np.abs(coupled_ham[coupled_pair[0], coupled_pair[1]])
-
-    uncoupled_cost = (np.abs(coupled_ham[uncoupled_pairs[0][0], uncoupled_pairs[0][1]]) + 
-                      np.abs(coupled_ham[uncoupled_pairs[1][0], uncoupled_pairs[1][1]])
-                     )
-
-    return coupled_cost + uncoupled_cost
+    if potential_cost:
+        return potential_cost
+    else:
+        other_params = {'base_ham': argv[6], 'linear_ham': argv[7]}
+        mlwf = argv[8]
+        
+        index = pair_indices[pair]
+        index.append(list(set(range(3)) - set(index))[0])
+        
+        #shuffle the wavwfunctions based on the Majorana pairs to be optimized
+        reference_wave_functions = mlwf[:, index] 
+        
+        return majorana_loss(
+            x,
+            hamiltonian,
+            other_params,
+            voltage_keys,
+            reference_wave_functions,
+            general_params["Delta"]
+        )
 
 
 def majorana_loss(
@@ -874,16 +871,15 @@ def majorana_loss(
     scale : float
         Energy scale to use.
     """
-    numerical_hamiltonian = hamiltonian(
-        **other_params,
-        **{key: x[index] for key, index in x_to_params.items()}
-    )
-    # https://wiki.quantumtinkerer.group/cookbook.html?highlight=sparse#sparse-diagonalization-with-mumps
-    energies, wave_functions = sparse_diag(
-        numerical_hamiltonian,
-        k=len(reference_wave_functions),
-        sigma=0,
-    )
+    
+    energies, wave_functions = diagonalize(hamiltonian,
+                                           {key: x[index] for key, index in x_to_params.items()},
+                                           **other_params, 
+                                           no_eigenvalues = len(reference_wave_functions)
+                                          )
+    
+    
+    
     S = wave_functions @ reference_wave_functions.T.conj()
     # Unitarize the overlap matrix
     U, _, Vh = svd(S)

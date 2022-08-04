@@ -59,8 +59,7 @@ def linear_Hamiltonian(
         pp["site_indices"],
         voltages,
         charges,
-        offset=kp["offset"][[0, 1]],
-        grid_spacing=kp["grid_spacing"],
+        offset=pp["offset"][[0, 1]],
     )
 
     general_params.update(potential=potential)
@@ -85,8 +84,7 @@ def linear_Hamiltonian(
             pp["site_indices"],
             voltages_t,
             charges,
-            offset=kp["offset"][[0, 1]],
-            grid_spacing=kp["grid_spacing"],
+            offset=pp["offset"][[0, 1]],
         )
 
         general_params.update(potential=potential)
