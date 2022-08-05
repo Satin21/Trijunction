@@ -82,7 +82,6 @@ def finite_system(**geometry):
     def f_params(**params):
 
         mus_nw = params.pop("mus_nw")
-        mu_qd = params.pop("mu_qd")
         Delta = params.pop("Delta")
         phi1 = params.pop("phi1")
         phi2 = params.pop("phi2")

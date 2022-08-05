@@ -17,6 +17,7 @@ from constants import scale, majorana_pair_indices, voltage_keys
 from solvers import sort_eigen
 import parameters
 import tools
+from collections import OrderedDict
 
 
 
@@ -138,15 +139,19 @@ class Optimize:
             self.voltages["dirichlet_" + str(i)] = 0.0
         
         if self.poisson_system:
-            self.setconfig()        
+            self.set_params()        
             
-    def setconfig(self):
+    def set_params(self):
+        
+        ## Check whether the two sides of the device are symmetric around x = zero
+        
         
         device_config = self.config["device"]
 
         self.site_coords, self.site_indices = discrete_system_coordinates(
             self.poisson_system, [("charge", "twoDEG")], boundaries=None
         )
+        
 
         self.grid_points = self.poisson_system.grid.points
         voltage_regions = self.poisson_system.regions.voltage.tag_points
@@ -160,13 +165,66 @@ class Optimize:
         crds = self.site_coords[:, [0, 1]]
         grid_spacing = device_config["grid_spacing"]["twoDEG"]
         self.offset = crds[0] % grid_spacing
+        
+        poisson_params = {
+            "linear_problem": self.linear_problem,
+            "site_coords": self.site_coords,
+            "site_indices": self.site_indices,
+            "offset": self.offset
+        }   
 
         self.geometry, self.trijunction, self.f_params = kwantsystem(
             self.config, self.boundaries, self.scale
         )
         
-        ## Check whether the two sides of the device are symmetric around x = zero
         self.check_symmetry()
+        
+        
+        voltage_regions = list(
+            self.poisson_system.regions.voltage.tag_points.keys()
+        )
+
+
+        print('Finding linear part of the tight-binding Hamiltonian')
+            
+        base_ham, linear_terms = linear_Hamiltonian(
+            self.poisson_system,
+            poisson_params,
+            self.trijunction,
+            self.f_params,
+            voltage_regions,
+        )
+        
+        mu = parameters.bands[0]
+        kwant_params = parameters.junction_parameters(m_nw=[mu, mu, mu])
+        kwant_params = {**kwant_params, **linear_terms}
+        
+        numerical_hamiltonian = hamiltonian(self.trijunction,
+                                            self.voltages,
+                                            self.f_params,
+                                            **kwant_params,
+                                            )
+        eigval, eigvec = eigsh(
+            numerical_hamiltonian,
+            6,
+            sigma=0,
+            return_eigenvectors=True
+            )
+
+
+        lowest_e_indices = np.argsort(np.abs(eigval))
+        self.eigenstates = eigvec[:, lowest_e_indices]
+
+        self.mlwf = _wannierize(self.trijunction, self.eigenstates)
+        
+        self.optimizer_args = OrderedDict(
+            poisson = self.poisson_system,
+            poisson_params = poisson_params,
+            kwant_system = self.trijunction,
+            kwant_params = self.f_params,
+            linear_terms = linear_terms,
+            mlwf = self.mlwf
+        )
         
         self.densityoperator = kwant.operator.Density(self.trijunction, np.eye(4))
 
@@ -179,7 +237,7 @@ class Optimize:
         ) = configuration(
             self.config, change_config=change_config, poisson_system = poisson_system
         )
-        self.setconfig()
+        self.set_params()
 
         return self.config, self.boundaries, self.poisson_system, self.linear_problem
     
@@ -193,12 +251,11 @@ class Optimize:
                 self.voltages,
                 charges,
                 offset = self.offset[[0, 1]],
-                scale = 1
             )
         pot.update((x, y*-1) for x, y in pot.items())
         
         mu = parameters.bands[0]
-        params = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
+        params = parameters.junction_parameters(m_nw=[mu, mu, mu])
         params.update(potential=pot)
 
         f_mu = self.f_params(**params)['mu']
@@ -228,48 +285,57 @@ class Optimize:
 
         if optimal_phis is not None:
             self.optimal_phis = optimal_phis
-        if hasattr(self, "optimal_phis"):
-            optimal_voltages = {}
-            for initial, pair in zip(initial_condition, pairs):
-                args = list(self.params(pair, self.optimal_phis).values())
-                print(f'Optimizing pair {pair}')
-                sol1 = minimize(
-                    cost_function,
-                    initial,
-                    args=tuple(args),
-                    # ftol = 1e-3,
-                    # verbose = 2,
-                    # max_nfev= 15
-                    # bounds = bounds,
-                    method="trust-constr",
-                    options={
-                        "disp": True,
-                        # "verbose": 2,
-                        "initial_tr_radius": 1e-3,
-                        "gtol": 1e0,
-                    },
-                )
-                
-                optimal_voltages[pair] = sol1
+        
+        optimal_voltages = {}
+        for initial, pair in zip(initial_condition, pairs):
+            depletion, accumulation = dep_acc_regions(self.poisson_system, 
+                                                      self.site_indices, 
+                                                      self.geometry, 
+                                                      pair
+                                                     )
             
-            return optimal_voltages
+            self.optimizer_args['depletion'] = depletion
+            self.optimizer_args['accumulation'] = accumulation
 
-        else:
-            print(
-                "Please calculate optimal phases for the nanowires before optimizing the gates"
+            print(f'Optimizing pair {pair}')
+            bounds = [(-np.inf, np.inf)] * (len(initial) - 1)
+            bounds.append((0, 2*np.pi))
+            sol1 = minimize(
+                cost_function,
+                initial,
+                args=tuple(list(self.optimizer_args.values())),
+                # ftol = 1e-3,
+                # verbose = 2,
+                # max_nfev= 15
+                bounds = tuple(bounds),
+                method="trust-constr",
+                options={
+                    "disp": True,
+                    # "verbose": 2,
+                    "initial_tr_radius": 1e-3,
+                    "gtol": 1e0,
+                },
             )
+
+            optimal_voltages[pair] = sol1
+
+        return optimal_voltages
             
     def dep_acc_voltages(self, pair, initial_condition):
         
-        self.optimize_args['dep_region'], self.optimize_args['acc_region'] = dep_acc_regions(self.poisson_system, 
-                                                                       self.site_indices, 
-                                                                       self.geometry, 
-                                                                       pair)
+        depletion, accumulation = dep_acc_regions(self.poisson_system, 
+                                                  self.site_indices, 
+                                                  self.geometry, 
+                                                  pair
+                                                 )
+        self.optimizer_args['depletion'] = depletion
+        self.optimizer_args['accumulation'] = accumulation
 
-        args = tuple(self.optimize_args['poisson'],
-                     self.optimize_args['general_param']['mus_nw'],
-                     self.optimize_args['dep_region'],
-                     self.optimize_args['acc_region']
+        args = tuple(self.poisson_system,
+                     self.optimizer_args['poisson'],
+                     parameters.bands[0],
+                     self.optimizer_args['dep_region'],
+                     self.optimizer_args['acc_region']
                      )
         
         sol1 = minimize(
@@ -285,89 +351,6 @@ class Optimize:
                     },
                 )
         return sol1.x
-
-    def params(self, pair: str, optimal_phis=None, voltages = None):
-        
-        self.pair = pair
-        
-        crds = self.site_coords
-        grid_spacing = self.config['device']['grid_spacing']['twoDEG']
-        offset = crds[0]%grid_spacing
-
-        poisson_params = {
-            "poisson_system": self.poisson_system,
-            "linear_problem": self.linear_problem,
-            "site_coords": self.site_coords,
-            "site_indices": self.site_indices,
-            "offset": offset
-        }
-
-        kwant_params = {
-            "grid_spacing": self.scale,
-            "finite_system_object": self.trijunction,
-            "finite_system_params_object": self.f_params,
-        }
-
-        mu = parameters.bands[0]
-
-        param = parameters.junction_parameters(m_nw=[mu, mu, mu], m_qd=0)
-        
-
-        depletion, accumulation = dep_acc_regions(self.poisson_system, 
-                        self.site_indices, 
-                        self.geometry, 
-                        pair)
-
-        self.optimize_args = {
-            'poisson': poisson_params,
-            'kwant': kwant_params,
-            'general_param': param,
-            'majorana_pair': pair,
-            'dep_region': depletion,
-            'acc_region': accumulation
-            }
-            
-        if optimal_phis is not None:
-            
-            self.optimal_phis = optimal_phis
-            
-            voltage_regions = list(
-                self.poisson_system.regions.voltage.tag_points.keys()
-            )
-            
-            
-            print('Finding linear part of the tight-binding Hamiltonian')
-            base_ham, linear_ham = linear_Hamiltonian(
-                poisson_params,
-                kwant_params,
-                param,
-                voltage_regions,
-                phis=self.optimal_phis[pair],
-            )
-            
-            if voltages is not None: self.voltages = voltages
-            
-            
-            eigval, eigvec = diagonalize(
-                hamiltonian,
-                self.voltages,
-                **{'base_ham': base_ham, 'linear_ham': linear_ham},
-                no_eigenvalues = 6
-            )
-            
-            lowest_e_indices = np.argsort(np.abs(eigval))
-            self.eigenstates = eigvec.T[:, lowest_e_indices].T
-
-            
-            if not hasattr(self, "mlwf"):
-                self.mlwf = _wannierize(self.trijunction, self.eigenstates)
-
-            self.optimize_args['base_ham'] = base_ham
-            self.optimize_args['linear_ham'] = linear_ham
-            self.optimize_args['mlwf'] = self.mlwf
-
-        
-        return self.optimize_args
         
     
     def plot(self, to_plot="POTENTIAL", phase_results = []):
@@ -656,61 +639,7 @@ def optimalphase(
     assert np.abs(sum([1 - max_phis[0], 1 - max_phis[1]])) < 1e-9 # check whether the max phases are symmetric for LC and RC pairs
 
     return max_phis, phase_results
-                
 
-def hamiltonian(
-    kwant_system, 
-    linear_terms,
-    **params, 
-):
-    summed_ham = sum(
-        [linear_terms[key] * params[key] for key, value in linear_terms.items()]
-    )
-    
-    base_ham = kwant_system.hamiltonian_submatrix(
-        sparse=True,
-        params=params
-    )
-
-    return base_ham + summed_ham
-
-
-
-class LuInv(sla.LinearOperator):
-    def __init__(self, A):
-        inst = mumps.MUMPSContext()
-        inst.analyze(A, ordering='pord')
-        inst.factor(A)
-        self.solve = inst.solve
-        sla.LinearOperator.__init__(self, A.dtype, A.shape)
-
-    def _matvec(self, x):
-        return self.solve(x.astype(self.dtype))
-
-
-def eigsh(
-    A,
-    k,
-    sigma=0,
-    return_eigenvectors=False,
-    **kwargs,
-):
-    """Call sla.eigsh with mumps support and sorting.
-
-    Please see scipy.sparse.linalg.eigsh for documentation.
-    """
-
-    opinv = LuInv(A - sigma * identity(matrix.shape[0]))
-    out = sla.eigsh(A, k, sigma=sigma, OPinv=opinv, return_eigenvectors=return_eigenvectors, **kwargs)
-    
-    if not return_eigenvectors:
-        return np.sort(out)
-    
-    evals, evecs = out
-    idx = np.argsort(evals)
-    evals = evals[idx]
-    evecs = evecs[:, idx]
-    return evals, evecs
 
 
 def dep_acc_regions(poisson_system, 
@@ -789,17 +718,17 @@ def potential_shape_loss(x, *argv):
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
     
-    pp, mus_nw, dep_points, acc_points = argv
+    poisson_system, poisson_params, mus_nw, dep_points, acc_points = argv
 
     charges = {}
     potential = gate_potential(
-        pp["poisson_system"],
-        pp["linear_problem"],
-        pp["site_coords"],
-        pp["site_indices"],
+        poisson_system,
+        poisson_params["linear_problem"],
+        poisson_params["site_coords"],
+        poisson_params["site_indices"],
         voltages,
         charges,
-        offset=pp["offset"],
+        offset=poisson_params["offset"],
     )
     
 
@@ -832,7 +761,48 @@ def potential_shape_loss(x, *argv):
 
     return 0
 
+class LuInv(sla.LinearOperator):
+    def __init__(self, A):
+        inst = mumps.MUMPSContext()
+        inst.analyze(A, ordering='pord')
+        inst.factor(A)
+        self.solve = inst.solve
+        sla.LinearOperator.__init__(self, A.dtype, A.shape)
 
+    def _matvec(self, x):
+        return self.solve(x.astype(self.dtype))
+
+def eigsh(
+    A,
+    k,
+    sigma=0,
+    return_eigenvectors=False,
+    **kwargs,
+):
+    """Call sla.eigsh with mumps support and sorting.
+
+    Please see scipy.sparse.linalg.eigsh for documentation.
+    """
+
+    opinv = LuInv(A - sigma * identity(matrix.shape[0]))
+    out = sla.eigsh(A, k, sigma=sigma, OPinv=opinv, return_eigenvectors=return_eigenvectors, **kwargs)
+    
+    if not return_eigenvectors:
+        return np.sort(out)
+    
+    evals, evecs = out
+    idx = np.argsort(evals)
+    evals = evals[idx]
+    evecs = evecs[:, idx]
+    return evals, evecs
+
+def phase_pairs(pair, phi):
+    if pair == 'right-top':
+        return {"phi2": phi, "phi1": 0}
+    if pair == 'left-top':
+        return {"phi2": phi, "phi1": 0}
+    if pair == 'left-right':
+        return {"phi1": phi, "phi2": 0}
 
 def cost_function(x, *argv):
     # Unpack argv
@@ -843,43 +813,76 @@ def cost_function(x, *argv):
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
 
-    poisson_params, kwant_params, general_params, pair, dep_points, acc_points = argv[:6]
+    poisson_system, poisson_params, kwant_system, kwant_params_fn,  = argv[:4]
+    desired_majorana_pair, dep_points, acc_points = argv[4:7]
     
+    mu = parameters.bands[0]
+    params = parameters.junction_parameters(m_nw=[mu, mu, mu])
+        
     potential_cost = potential_shape_loss(
         x,
+        poisson_system,
         poisson_params,
-        general_params['mus_nw'],
+        mu,
         dep_points,
         acc_points
     )
 
     if potential_cost:
         return potential_cost
-    else:
-        other_params = {'base_ham': argv[6], 'linear_ham': argv[7]}
-        mlwf = argv[8]
-        
-        index = pair_indices[pair]
-        index.append(list(set(range(3)) - set(index))[0])
-        
-        #shuffle the wavwfunctions based on the Majorana pairs to be optimized
-        reference_wave_functions = mlwf[:, index] 
-        
-        return majorana_loss(
-            x,
-            hamiltonian,
-            other_params,
-            voltage_keys,
-            reference_wave_functions,
-            general_params["Delta"]
+    
+    linear_terms =  argv[7]
+    mlwf = argv[8]
+
+    index = pair_indices[pair]
+    index.append(list(set(range(3)) - set(index))[0])
+
+    #shuffle the wavwfunctions based on the Majorana pairs to be optimized
+    reference_wave_functions = mlwf[:, index]
+
+    phi = x[-1]
+    params.update(
+        phase_pairs(
+            pair,
+            phi
         )
+    )
+    
+    params = {**params, **linear_terms}
+    
+    
+    numerical_hamiltonian = hamiltonian(kwant_system, 
+                                        voltages, 
+                                        kwant_params_fn, 
+                                        **params
+                                       )
+
+    return majorana_loss(
+        numerical_hamiltonian,
+        reference_wave_functions,
+        params["Delta"]
+    )
+    
+def hamiltonian(
+    kwant_system, 
+    linear_coefficients: dict,
+    params_fn: callable,
+    **params, 
+):
+    summed_ham = sum(
+        [linear_coefficients[key] * params[key] for key, value in linear_coefficients.items()]
+    )
+    
+    base_ham = kwant_system.hamiltonian_submatrix(
+        sparse=True,
+        params=params_fn(**params)
+    )
+
+    return base_ham + summed_ham
 
 
 def majorana_loss(
-    x,
-    hamiltonian,
-    other_params,
-    x_to_params,
+    numerical_hamiltonian,
     reference_wave_functions,
     scale,
 ):
@@ -889,23 +892,14 @@ def majorana_loss(
     ----------
     x : 1d array
         The vector of parameters to optimize
-    hamiltonian : callable
+    numerical_hamiltonian : coo matrix
         A function for returning the sparse matrix Hamiltonian given parameters.
-    other_params : dict
-        All the extra inputs to the Hamiltonian
-    x_to_params : dict
-        Conversion from x to the inputs to the Hamiltonian
     reference_wave_functions : 2d array
         Majorana wave functions. The first two correspond to Majoranas that
         need to be coupled.
     scale : float
         Energy scale to use.
     """
-    
-    numerical_hamiltonian = hamiltonian(
-        **other_params,
-        **{key: x[index] for key, index in x_to_params.items()}
-    )
     
     energies, wave_functions = eigsh(
         numerical_hamiltonian.tocsc(),
@@ -924,4 +918,3 @@ def majorana_loss(
     return (
         - desired + np.log(undesired/desired + 1e-3) 
     )
-

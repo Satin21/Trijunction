@@ -6,8 +6,10 @@ import sys, os
 import tinyarray as ta
 from tqdm import tqdm
 
+import parameters
 sys.path.append(os.path.realpath(sys.path[0] + '/..'))
 from rootpath import ROOT_DIR
+
 
 # ROOT_DIR = '/home/srangaswamykup/trijunction_design'
 
@@ -38,7 +40,7 @@ def get_potential(potential):
 
 
 def linear_Hamiltonian(
-    poisson_params, kwant_params, general_params, gates, phis=[0.0, 0.0]
+    poisson_system, poisson_params, kwant_system, kwant_params_fn, gates
 ):
 
     ## non-linear part of the Hamiltonian
@@ -48,12 +50,11 @@ def linear_Hamiltonian(
     for gate in gates:
         voltages[gate] = 0.0
 
-    kp = kwant_params
     pp = poisson_params
 
     charges = {}
     potential = gate_potential(
-        pp["poisson_system"],
+        poisson_system,
         pp["linear_problem"],
         pp["site_coords"][:, [0, 1]],
         pp["site_indices"],
@@ -61,13 +62,15 @@ def linear_Hamiltonian(
         charges,
         offset=pp["offset"][[0, 1]],
     )
+    
+    mu = parameters.bands[0]
+    kwant_params = parameters.junction_parameters(m_nw=[mu, mu, mu])
+    kwant_params.update(potential=potential)
+#     general_params["phi1"] = phis[0]
+#     general_params["phi2"] = phis[1]
 
-    general_params.update(potential=potential)
-    general_params["phi1"] = phis[0]
-    general_params["phi2"] = phis[1]
-
-    bare_hamiltonian = kp["finite_system_object"].hamiltonian_submatrix(
-        sparse=True, params=kp["finite_system_params_object"](**general_params)
+    base_ham = kwant_system.hamiltonian_submatrix(
+        sparse=True, params=kwant_params_fn(**kwant_params)
     )
 
     hamiltonian_V = {}
@@ -78,7 +81,7 @@ def linear_Hamiltonian(
         voltages_t[gate] = 1.0
 
         potential = gate_potential(
-            pp["poisson_system"],
+            poisson_system,
             pp["linear_problem"],
             pp["site_coords"][:, [0, 1]],
             pp["site_indices"],
@@ -87,15 +90,15 @@ def linear_Hamiltonian(
             offset=pp["offset"][[0, 1]],
         )
 
-        general_params.update(potential=potential)
+        kwant_params.update(potential=potential)
 
-        hamiltonian = kp["finite_system_object"].hamiltonian_submatrix(
-            sparse=True, params=kp["finite_system_params_object"](**general_params)
+        hamiltonian = kwant_system.hamiltonian_submatrix(
+            sparse=True, params=kwant_params_fn(**kwant_params)
         )
 
-        hamiltonian_V[gate] = hamiltonian - bare_hamiltonian
+        hamiltonian_V[gate] = hamiltonian - base_ham
 
-    return bare_hamiltonian, hamiltonian_V
+    return base_ham, hamiltonian_V
 
 
 def find_cuts(potentials, cut=10e-9, scale=1):

@@ -98,7 +98,7 @@ def single_parameter(key, vals, max_phis, offset):
     return params
 
 
-def junction_parameters(m_nw, m_qd=0.0, bx=b):
+def junction_parameters(m_nw, bx=b):
     """
     Typical parameters
     """
@@ -109,7 +109,6 @@ def junction_parameters(m_nw, m_qd=0.0, bx=b):
     Delta = 5e-4
     parameters = dict(
         mus_nw=m_nw,
-        mu_qd=m_qd,
         t=t,
         Delta=Delta,
         alpha=alpha,
