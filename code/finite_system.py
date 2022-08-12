@@ -4,6 +4,7 @@ import numpy as np
 import tinyarray as ta
 
 from constants import scale
+
 rounding_limit = 3
 
 hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
@@ -117,6 +118,6 @@ def finite_system(**geometry):
 
 def get_potential(potential):
     def f(x, y):
-        return potential[ta.array(np.round(np.array([x, y])/scale, rounding_limit))]
+        return potential[ta.array(np.round(np.array([x, y]) / scale, rounding_limit))]
 
     return f

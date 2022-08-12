@@ -7,6 +7,7 @@ import numpy as np
 
 from gates import rectangular_gate, half_disk_gate
 
+
 def _gate_coords(obj, difference=None, common=None, gap=None):
 
     if type(common) == np.ndarray:
@@ -35,7 +36,7 @@ def gate_coords(gate_config):
     """
     Returns gate vertices and gate names
     """
-    
+
     L = gate_config["L"]
     width = gate_config["width"]
     gap = gate_config["gap"]
@@ -77,12 +78,9 @@ def gate_coords(gate_config):
     top_1 = _gate_coords(gates[0], difference=aux_rectangle_2, gap=gap)
     top_2 = top_1.copy()
     top_2[:, 0] *= -1
-    
-    gates_vertex = [
-        left_1, left_2, right_1, right_2, top_1, top_2 
-    ]
-    
-    
+
+    gates_vertex = [left_1, left_2, right_1, right_2, top_1, top_2]
+
     # gates_vertex = [
     #     _gate_coords(gates[0], common=aux_rectangle_2),
     #     _gate_coords(gates[2], difference=aux_rectangle_1),

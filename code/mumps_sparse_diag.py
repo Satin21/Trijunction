@@ -8,10 +8,11 @@ def sparse_diag(matrix, k, sigma, **kwargs):
 
     Please see scipy.sparse.linalg.eigsh for documentation.
     """
+
     class LuInv(sla.LinearOperator):
         def __init__(self, A):
             inst = mumps.MUMPSContext()
-            inst.analyze(A, ordering='pord')
+            inst.analyze(A, ordering="pord")
             inst.factor(A)
             self.solve = inst.solve
             sla.LinearOperator.__init__(self, A.dtype, A.shape)

@@ -7,14 +7,13 @@ import tinyarray as ta
 from tqdm import tqdm
 
 import parameters
-sys.path.append(os.path.realpath(sys.path[0] + '/..'))
-from rootpath import ROOT_DIR
 
+ROOT_DIR = os.path.realpath(sys.path[0] + '/../')
 
-# ROOT_DIR = '/home/srangaswamykup/trijunction_design'
 
 # pre-defined functions from spin-qubit repository
-sys.path.append(os.path.join(ROOT_DIR + '/spin-qubit/'))
+sys.path.append(ROOT_DIR + "/spin-qubit/")
+
 from potential import gate_potential
 
 
@@ -52,28 +51,22 @@ def linear_Hamiltonian(
 
     pp = poisson_params
 
-    charges = {}
-    potential = gate_potential(
-        poisson_system,
-        pp["linear_problem"],
-        pp["site_coords"][:, [0, 1]],
-        pp["site_indices"],
-        voltages,
-        charges,
-        offset=pp["offset"][[0, 1]],
+    zero_potential = dict(
+        zip(ta.array(pp["site_coords"][:, [0, 1]]), np.zeros(len(pp["site_coords"])))
     )
-    
+
     mu = parameters.bands[0]
     kwant_params = parameters.junction_parameters(m_nw=[mu, mu, mu])
-    kwant_params.update(potential=potential)
-#     general_params["phi1"] = phis[0]
-#     general_params["phi2"] = phis[1]
+    kwant_params.update(potential=zero_potential)
+    #     general_params["phi1"] = phis[0]
+    #     general_params["phi2"] = phis[1]
 
     base_ham = kwant_system.hamiltonian_submatrix(
         sparse=True, params=kwant_params_fn(**kwant_params)
     )
 
     hamiltonian_V = {}
+    charges = {}
     for gate in tqdm(gates):
 
         voltages_t = dict.fromkeys(voltages, 0.0)
