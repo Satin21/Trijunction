@@ -8,6 +8,8 @@ from collections import OrderedDict
 
 # packages used here
 import kwant
+import sys, os
+
 
 from optimization import Optimize, hamiltonian, optimize_phase_fn, optimize_gate_fn
 import parameters
@@ -15,21 +17,20 @@ from constants import scale, majorana_pair_indices
 from utils import voltage_dict, eigsh, svd_transformation
 
 
-options = cluster_options()
-options.worker_cores = 2
-options.worker_memory = 10
-options.extra_path = "/home/srangaswamykup/trijunction_design/code/"
-cluster_dashboard_link = (
-    "http://io.quantumtinkerer.tudelft.nl/user/srangaswamykup/proxy/"
-)
+
+# options = cluster_options()
+# options.worker_cores = 2
+# options.worker_memory = 10
+# options.extra_path = "/home/srangaswamykup/trijunction_design/code/"
+# cluster_dashboard_link = (
+#     "http://io.quantumtinkerer.tudelft.nl/user/srangaswamykup/proxy/"
+# )
 
 
 def parameter_tuning(newconfig):
 
-    sys.path.append(
-        '/home/srangaswamykup/trijunction_design/spin-qubit/')
 
-    with open("config.json", "r") as outfile:
+    with open("/home/srangaswamykup/trijunction_design/code/config.json", "r") as outfile:
         config = json.load(outfile)
 
     optimize = Optimize(
@@ -42,8 +43,13 @@ def parameter_tuning(newconfig):
         {"device": {"thickness": {"dielectric": thickness}}},
         {"gate": {"width": gap}},
     ]
-
-    _, boundaries, poisson_system, linear_problem = optimize.changeconfig(change_config)
+    
+    try:
+        _, boundaries, poisson_system, linear_problem = optimize.changeconfig(change_config)
+        return 'Success'
+    
+    except AssertionError:
+        return 'ERROR'
 
     pairs = ["right-top", "left-top", "left-right"]
     voltages = OrderedDict()
@@ -72,7 +78,7 @@ def parameter_tuning(newconfig):
 
     zero_potential = dict(
         zip(
-            ta.array(optimize.site_coords[:, [0, 1]]),
+            ta.array(optimize.site_coords[:, [0, 1]] - optimize.offset),
             np.zeros(len(optimize.site_coords)),
         )
     )
@@ -80,6 +86,7 @@ def parameter_tuning(newconfig):
     kwant_params["general_params"].update(potential=zero_potential)
 
     intermediate_couplings = []
+    
 
     iteration = 0
     tol = 1e-1
@@ -133,32 +140,32 @@ def parameter_tuning(newconfig):
 
         iteration += 1
 
-    return intermediate_couplings[-1], optimal_voltages, optimal_phases
+    return intermediate_couplings, voltages, optimal_phases
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    dielectric_thickness = [0.5, 1, 1.5, 2.0, 2.5, 3.0]
-    gate_separation = [5, 7, 9, 11, 13, 15]
+#     dielectric_thickness = [0.5, 1, 1.5, 2.0, 2.5, 3.0]
+#     gate_separation = [5, 7, 9, 11, 13, 15]
 
-    SAVE_AT = "/home/tinkerer/trijunction_design/data/results/"
+#     SAVE_AT = "/home/tinkerer/trijunction_design/data/results/"
 
-    sequence = np.array(list(product(dielectric_thickness, gate_separation)))[:2]
+#     sequence = np.array(list(product(dielectric_thickness, gate_separation)))[:2]
 
-    with Cluster(options) as cluster:
-        cluster.scale(n=len(sequence))
-        client = cluster.get_client()
-        results = []
-        futures = client.map(parameter_tuning, sequence)
-        for future in futures:
-            if future.status == "error":
-                print("Error!")
-                results.append("E")
-            else:
-                results.append(future.result())
-                filename = SAVE_AT + str(thickness) + "_" + str(gap) + "_" + ".pkl"
-                with open(filename, "wb") as outfile:
-                    pickle.dump(results[-1], outfile)
+#     with Cluster(options) as cluster:
+#         cluster.scale(n=len(sequence))
+#         client = cluster.get_client()
+#         results = []
+#         futures = client.map(parameter_tuning, sequence)
+#         for future in futures:
+#             if future.status == "error":
+#                 print("Error!")
+#                 results.append("E")
+#             else:
+#                 results.append(future.result())
+#                 filename = SAVE_AT + str(thickness) + "_" + str(gap) + "_" + ".pkl"
+#                 with open(filename, "wb") as outfile:
+#                     pickle.dump(results[-1], outfile)
 
 
 def wave_functions_coupling(

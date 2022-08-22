@@ -7,12 +7,9 @@ import tinyarray as ta
 from tqdm import tqdm
 
 import parameters
+# sys.path.append(os.path.realpath('./../spin-qubit/'))
 
-ROOT_DIR = os.path.realpath(sys.path[0] + '/../')
-
-
-# pre-defined functions from spin-qubit repository
-sys.path.append(ROOT_DIR + "/spin-qubit/")
+sys.path.append('/home/srangaswamykup/trijunction_design/spin-qubit/')
 
 from potential import gate_potential
 
@@ -52,7 +49,7 @@ def linear_Hamiltonian(
     pp = poisson_params
 
     zero_potential = dict(
-        zip(ta.array(pp["site_coords"][:, [0, 1]]), np.zeros(len(pp["site_coords"])))
+        zip(ta.array(pp["site_coords"][:, [0, 1]] - pp["offset"]), np.zeros(len(pp["site_coords"])))
     )
 
     mu = parameters.bands[0]

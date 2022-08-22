@@ -8,10 +8,9 @@ import kwant.linalg.mumps as mumps
 import sys, os
 from scipy.sparse import identity
 
-ROOT_DIR = os.path.realpath(sys.path[0] + '/../')
+# sys.path.append(os.path.realpath('./../spin-qubit/'))
 
-# pre-defined functions from spin-qubit repository
-sys.path.append(ROOT_DIR + "/spin-qubit/")
+sys.path.append('/home/srangaswamykup/trijunction_design/spin-qubit/')
 
 from utility import wannier_basis
 

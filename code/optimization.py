@@ -6,11 +6,14 @@ import kwant
 import dask.bag as db
 from scipy.optimize import minimize, minimize_scalar, approx_fprime
 
-ROOT_DIR = os.path.realpath(sys.path[0] + '/../')
-# pre-defined functions from spin-qubit repository
-sys.path.append(ROOT_DIR + "/spin-qubit/")
+
+# sys.path.append(os.path.realpath('./../spin-qubit/'))
+
+sys.path.append('/home/srangaswamykup/trijunction_design/spin-qubit/')
 
 from discretize import discretize_heterostructure
+from gate_design import gate_coords
+
 from finite_system import finite_system
 from tools import dict_update, find_resonances
 from constants import scale, majorana_pair_indices, voltage_keys, phase_pairs
@@ -24,6 +27,7 @@ from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
 from utility import gather_data
 from tools import linear_Hamiltonian
+
 
 
 class Optimize:
@@ -52,6 +56,7 @@ class Optimize:
 
         self.poisson_system = poisson_system
         self.linear_problem = linear_problem
+        self.error_trial = 0
 
         self.voltages = dict(zip(arm, volt))
         for i in range(6):
@@ -91,10 +96,34 @@ class Optimize:
         }
 
         self.geometry, self.trijunction, self.f_params = kwantsystem(
-            self.config, self.boundaries, self.scale
+            self.config, self.boundaries, self.nw_centers, self.scale
         )
+        
+#         try: 
+#             self.check_symmetry()
+#         # For large gate widths, it is possible that the nanowire reaches until the system boundary along x causing finite size effects. 
+#         # To avoid this, increase the system width.
+#         except AssertionError:
+#             if not self.error_trial > 2:
+#                 self.boundaries['xmax'] += self.config['gate']['channel_width'] 
+#                 self.boundaries['xmin'] = -self.boundaries['xmax']
 
-        self.check_symmetry()
+#                 (
+#                     _,
+#                     _,
+#                     _,
+#                     self.poisson_system,
+#                     self.linear_problem
+#                 ) = configuration(
+#                     self.config, change_config=[], poisson_system=[], 
+#                     boundaries=self.boundaries
+#                 )
+
+#                 self.error_trial += 1
+
+#                 self.set_params()
+#             else:
+#                 raise AssertionError("symmetry issue")
 
         voltage_regions = list(self.poisson_system.regions.voltage.tag_points.keys())
 
@@ -161,8 +190,9 @@ class Optimize:
         (
             self.config,
             self.boundaries,
+            self.nw_centers,
             self.poisson_system,
-            self.linear_problem,
+            self.linear_problem
         ) = configuration(
             self.config, change_config=change_config, poisson_system=poisson_system
         )
@@ -181,7 +211,6 @@ class Optimize:
             charges,
             offset=self.offset[[0, 1]],
         )
-        pot.update((x, y * -1) for x, y in pot.items())
 
         mu = parameters.bands[0]
         params = parameters.junction_parameters(m_nw=[mu, mu, mu])
@@ -193,8 +222,11 @@ class Optimize:
             return f_mu(x, y) - f_mu(-x, y)
 
         kwant_sites = np.array(list(site.pos for site in self.trijunction.sites))
-
-        assert max([diff_f_mu(*site) for site in kwant_sites]) < 1e-9
+        
+        to_check = [diff_f_mu(*site) for site in kwant_sites]
+        print(max(to_check))
+        
+        assert max(to_check) < 1e-9
 
     def set_voltages(self, newvoltages):
         self.voltages.update(dict(zip(self.voltage_regions, newvoltages)))
@@ -315,56 +347,41 @@ class Optimize:
                 )
 
 
-def configuration(config, change_config=[], poisson_system=[]):
+def configuration(config, change_config=[], poisson_system=[], boundaries = []):
 
     if len(change_config):
         for local_config in change_config:
             config = dict_update(config, local_config)
-
-    device_config = config["device"]
-    gate_config = config["gate"]
-
-    L = config["gate"]["L"]
-    R = np.round(L / np.sqrt(2))
-
-    # Boundaries of Poisson region
-    xmax = R
-    xmin = -xmax
-    ymin = 0
-    ymax = R + gate_config["L"] - gate_config["width"]
-
-    boundaries = {"xmin": xmin, "xmax": xmax, "ymin": ymin, "ymax": ymax}
-
+    
     if not poisson_system:
-        poisson_system = discretize_heterostructure(config, boundaries)
+        gate_vertices, gate_names, boundaries, nw_centers = gate_coords(**config["gate"])
+        # boundaries['ymin'] -= config['kwant']['nwl']
+        # boundaries['ymax'] += config['kwant']['nwl']
+        poisson_system = discretize_heterostructure(config, boundaries, gate_vertices, gate_names)
+        # boundaries['ymin'] += config['kwant']['nwl']
+        # boundaries['ymax'] -= config['kwant']['nwl']
 
     linear_problem = linear_problem_instance(poisson_system)
 
-    return config, boundaries, poisson_system, linear_problem
+    return config, boundaries, nw_centers, poisson_system, linear_problem
 
 
-def kwantsystem(config, boundaries, scale=1e-8):
-
-    L = config["gate"]["L"]
-    R = np.round(L / np.sqrt(2))
+def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
 
     a = scale
-    width = config["gate"]["width"]
     l = config["kwant"]["nwl"]
     w = config["kwant"]["nww"]
-
-    boundaries = np.array(list(boundaries.values()))
+    
+    nw_centers['top'][1] += l
 
     geometry = {
         "nw_l": l * a,
         "nw_w": w * a,
-        "s_w": (boundaries[1] - boundaries[0]) * a,
-        "s_l": (boundaries[3] - boundaries[2]) * a,
-        "centers": [
-            [np.round(-R + width / np.sqrt(2)) * a, 0],
-            [np.round(-(-R + width / np.sqrt(2))) * a, 0],
-            [0, ((boundaries[3] + l) * a) - a],
-        ],
+        "s_w": (boundaries['xmax'] - boundaries['xmin']) * a,
+        "s_l": (boundaries['ymax'] - boundaries['ymin']) * a,
+        "centers": [nw_centers['left']*a, 
+                    nw_centers['right']*a, 
+                    nw_centers['top']*a]
     }
 
     ## Discretized Kwant system
@@ -771,14 +788,14 @@ def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_
     return -desired + np.log(undesired / desired + 1e-3)
 
 
-def optimize_phase_fn(voltages, pairs, kwant_params, no_eigenvalues):
+def optimize_phase_fn(voltages, pairs, kwant_params, no_eigenvalues = 10):
     optimal_phases = {}
-    no_eigenvalues = 10
     for voltage, pair in zip(voltages, pairs):
         args = [pair, voltage, no_eigenvalues]
         args = args + list(kwant_params.values())
 
-        sol = minimize_scalar(phase_loss, args=tuple(args), bounds=(0, 2))
+        sol = minimize_scalar(phase_loss, args=tuple(args), bounds=(0, 2), 
+                              method='bounded')
 
         optimal_phases[pair] = phase_pairs(pair, sol.x * np.pi)
 

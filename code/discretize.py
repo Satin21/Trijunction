@@ -1,10 +1,10 @@
 import numpy as np
 import sys, os
 
-ROOT_DIR = os.path.realpath(sys.path[0] + '/../')
+sys.path.append(os.path.realpath('./../spin-qubit/'))
 
-# pre-defined functions from spin-qubit repository
-sys.path.append(ROOT_DIR + "/spin-qubit/")
+sys.path.append('/home/srangaswamykup/trijunction_design/spin-qubit/')
+
 from layout import (
     Layout,
     OverlappingGateLayer,
@@ -14,19 +14,17 @@ from layout import (
 )
 
 
-from gate_design import gate_coords
-
-
-def discretize_heterostructure(config, boundaries):
+def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     device_config = config["device"]
     grid_spacing = device_config["grid_spacing"]
     thickness = device_config["thickness"]
     permittivity = device_config["permittivity"]
-    gate_config = config["gate"]
+    
+    
 
-    total_width = 2 * boundaries["xmax"]
-    total_length = boundaries["ymax"]
+    total_width = boundaries['xmax'] - boundaries['xmin']
+    total_length = boundaries["ymax"] - boundaries['ymin']
 
     # https://arxiv.org/pdf/2105.10437.pdf
 
@@ -73,8 +71,6 @@ def discretize_heterostructure(config, boundaries):
     )
 
     height += thickness["dielectric"]
-
-    gate_vertices, gate_names = gate_coords(gate_config)
 
     layout.add_layer(
         OverlappingGateLayer(
