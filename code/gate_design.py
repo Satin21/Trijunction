@@ -4,7 +4,7 @@ from shapely.ops import split
 from itertools import product
 from collections import OrderedDict
 
-def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
+def gate_coords(grid_spacing, L=41, gap=4, channel_width=11, angle=np.pi / 4):
     """Find the gate coordinates that defines the trijunction
 
     L: Channel length
@@ -42,7 +42,7 @@ def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
     tcoords_p = shift(top, channel_width/2)
 
     lr = np.vstack((right.coords, left.coords[::-1]))
-    lr[:, 1] -= channel_width / 2
+    lr[:, 1] -= channel_width/2
     lr[0, 0] -= distance_to_axis
     lr[-1, 0] += distance_to_axis
     truncate = lr[lr[:, 1] < 0.0].copy()
@@ -82,10 +82,10 @@ def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
         ]
     )
 
-    top, bottom = list(gates[1].difference(splitter.buffer(gap)).geoms)
+    top, bottom = list(gates[1].difference(splitter.buffer(gap/2)).geoms)
 
-    left_1 = np.array(bottom.exterior.coords)
-    top_1 = np.array(top.exterior.coords)
+    left_1 = np.round(bottom.exterior.coords)
+    top_1 = np.round(top.exterior.coords)
     top_2 = top_1.copy() @ [[-1, 0], [0, 1]]
     right_2 = left_1.copy() @ [[-1, 0], [0, 1]]
 
@@ -95,9 +95,9 @@ def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
         [Point(point) for point in product([0.0], np.unique(coords[:, 1]))]
     )
 
-    left_2, _ = list(gates[0].difference(splitter.buffer(gap)).geoms)
-    left_2 = np.array(left_2.exterior.coords)
+    left_2, _ = list(gates[0].difference(splitter.buffer(gap/2)).geoms)
     
+    left_2 = np.round(left_2.exterior.coords)
     right_1 = left_2.copy() @ [[-1, 0], [0, 1]]
     
     gates_vertex = [
@@ -105,10 +105,15 @@ def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
         right_1, right_2, 
         top_1, top_2
     ]
-    gate_names = ["left_1", "left_2", "right_1", "right_2", "top_1", "top_2"]
+
     
     gate_names = ["left_1", "left_2", "right_1", "right_2", "top_1", "top_2"]
-    boundaries = OrderedDict(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax)
+    assert min(left_1[:, 0]) == min(top_1[:, 0])
+    assert max(right_2[:, 0]) == max(top_2[:, 0])
+    
+    boundaries = OrderedDict(xmin = min(left_1[:, 0]), xmax = max(right_2[:, 0]),
+                             ymin = min(left_1[:, 1]), ymax = max(top_1[:, 1]))
+            
     channel_center = OrderedDict(left = np.hstack(tail), 
                           right = np.hstack(tail*-1), 
                           top = np.hstack([0, L+head[1]]))

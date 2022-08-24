@@ -60,23 +60,34 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     )
 
     height = thickness["twoDEG"] / 2
-
+    
+    def check_grid(A, B):
+        if A % B:
+            return A % B
+        return B
+    
+    lattice_constant = check_grid(thickness["dielectric"], grid_spacing["dielectric"])
+    
     layout.add_layer(
         SimpleChargeLayer(
             "Al2O3",
             thickness["dielectric"],
             permittivity["Al2O3"],
-            grid_spacing["dielectric"],
+            lattice_constant,
         )
     )
 
     height += thickness["dielectric"]
+    
+
+    lattice_constant = check_grid(thickness["gates"], grid_spacing["gate"])
+        
 
     layout.add_layer(
         OverlappingGateLayer(
             thickness["gates"],
             permittivity["metal"],
-            grid_spacing["gate"],
+            lattice_constant,
             layer_name=gate_names,
             gate_objects=gate_vertices,
             z_bottom=height,
@@ -85,12 +96,15 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     )
 
     height += thickness["gates"]
+    
+    lattice_constant = check_grid(thickness["dielectric"], grid_spacing["dielectric"])
+    
     layout.add_layer(
         SimpleChargeLayer(
             "Al2O3_2",
             thickness["dielectric"],
             permittivity["Al2O3"],
-            grid_spacing["dielectric"],
+            lattice_constant,
             z_bottom=height,
             fix_overlap=False,
         )
@@ -98,17 +112,21 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     height += thickness["dielectric"]
     thickness_accumulation_gate = 2
+    
+    grid_spacing = check_grid(thickness_accumulation_gate, grid_spacing["gate"])
+    
     layout.add_layer(
         PlanarGateLayer(
             "global_accumul",
             thickness_accumulation_gate,
             permittivity["metal"],
-            grid_spacing["gate"],
+            grid_spacing,
             z_bottom=height,
         )
     )
 
     height += thickness_accumulation_gate
+    
 
     ## Surround the device with gates for applying Dirichlet boundary condition
 
@@ -119,6 +137,8 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     # height = sum(layer.thickness for layer in layout.layers)
 
     assert -(thickness["substrate"] + thickness["twoDEG"] / 2) == layout.z_bottom
+    
+    
 
     zmin = layout.z_bottom - margin[2]
     zmax = height + margin[2]
@@ -132,12 +152,12 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     centers = np.array(
         [
-            [[xmin - (thickness_gate / 2), 0.0, zmin + (zmax - zmin) / 2]],
-            [[xmax + (thickness_gate / 2), 0.0, zmin + (zmax - zmin) / 2]],
+            [[xmin - (thickness_gate / 2), ymin+(ymax-ymin)/2, zmin + (zmax - zmin) / 2]],
+            [[xmax + (thickness_gate / 2), ymin+(ymax-ymin)/2, zmin + (zmax - zmin) / 2]],
             [[0.0, ymin - (thickness_gate / 2), zmin + (zmax - zmin) / 2]],
             [[0.0, ymax + (thickness_gate / 2), zmin + (zmax - zmin) / 2]],
-            [[0.0, 0.0, zmin - (thickness_gate / 2)]],
-            [[0.0, 0.0, zmax + (thickness_gate / 2)]],
+            [[0.0, ymin+(ymax-ymin)/2, zmin - (thickness_gate / 2)]],
+            [[0.0, ymin+(ymax-ymin)/2, zmax + (thickness_gate / 2)]],
         ]
     )
 
@@ -167,7 +187,8 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     ]
 
     # return centers, lengths, widths, heights
-
+    layout.height = sum(layer.thickness for layer in layout.layers)
+    
     names = []
     for i, data in enumerate(zip(centers, lengths, widths, heights)):
         center, length, width, height = data

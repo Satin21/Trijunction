@@ -41,7 +41,7 @@ def parameter_tuning(newconfig):
 
     change_config = [
         {"device": {"thickness": {"dielectric": thickness}}},
-        {"gate": {"width": gap}},
+        {"gate": {"channel_width": gap}},
     ]
     
     try:

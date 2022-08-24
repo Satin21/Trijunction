@@ -45,9 +45,9 @@ def finite_system(**geometry):
         """
 
         def wires_shape(x, y):
-
             for i in range(3):
                 x0, y0 = centers[i]
+                
                 if -w / 2 - x0 < x < w / 2 - x0:
                     if y0 - l <= y <= y0:
                         return mu[i]
@@ -121,3 +121,4 @@ def get_potential(potential):
         return potential[ta.array(np.round(np.array([x, y]) / scale, rounding_limit))]
 
     return f
+

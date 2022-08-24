@@ -56,7 +56,6 @@ class Optimize:
 
         self.poisson_system = poisson_system
         self.linear_problem = linear_problem
-        self.error_trial = 0
 
         self.voltages = dict(zip(arm, volt))
         for i in range(6):
@@ -94,37 +93,12 @@ class Optimize:
             "site_indices": self.site_indices,
             "offset": self.offset,
         }
-
         self.geometry, self.trijunction, self.f_params = kwantsystem(
             self.config, self.boundaries, self.nw_centers, self.scale
         )
         
-#         try: 
-#             self.check_symmetry()
-#         # For large gate widths, it is possible that the nanowire reaches until the system boundary along x causing finite size effects. 
-#         # To avoid this, increase the system width.
-#         except AssertionError:
-#             if not self.error_trial > 2:
-#                 self.boundaries['xmax'] += self.config['gate']['channel_width'] 
-#                 self.boundaries['xmin'] = -self.boundaries['xmax']
-
-#                 (
-#                     _,
-#                     _,
-#                     _,
-#                     self.poisson_system,
-#                     self.linear_problem
-#                 ) = configuration(
-#                     self.config, change_config=[], poisson_system=[], 
-#                     boundaries=self.boundaries
-#                 )
-
-#                 self.error_trial += 1
-
-#                 self.set_params()
-#             else:
-#                 raise AssertionError("symmetry issue")
-
+        self.check_symmetry()
+        
         voltage_regions = list(self.poisson_system.regions.voltage.tag_points.keys())
 
         print("Finding linear part of the tight-binding Hamiltonian")
@@ -201,16 +175,30 @@ class Optimize:
         return self.config, self.boundaries, self.poisson_system, self.linear_problem
 
     def check_symmetry(self):
+        
+        unique_indices = self.site_coords[:, 2] == 0
+        coords = self.site_coords[unique_indices]
+        indices = self.site_indices[unique_indices]
+        
         charges = {}
         pot = gate_potential(
             self.poisson_system,
             self.linear_problem,
-            self.site_coords[:, [0, 1]],
-            self.site_indices,
+            coords[:, [0, 1]],
+            indices,
             self.voltages,
             charges,
             offset=self.offset[[0, 1]],
         )
+        
+        poisson_sites = np.array(list(pot.keys()))
+
+        def diff_pot(x, y):
+            return pot[ta.array((x, y))] - pot[ta.array((-x, y))] 
+
+        to_check = [diff_pot(*site) for site in poisson_sites]
+        
+        assert max(to_check) < 1e-9
 
         mu = parameters.bands[0]
         params = parameters.junction_parameters(m_nw=[mu, mu, mu])
@@ -224,7 +212,6 @@ class Optimize:
         kwant_sites = np.array(list(site.pos for site in self.trijunction.sites))
         
         to_check = [diff_f_mu(*site) for site in kwant_sites]
-        print(max(to_check))
         
         assert max(to_check) < 1e-9
 
@@ -353,13 +340,12 @@ def configuration(config, change_config=[], poisson_system=[], boundaries = []):
         for local_config in change_config:
             config = dict_update(config, local_config)
     
+    grid_spacing = config['device']['grid_spacing']['gate']
     if not poisson_system:
-        gate_vertices, gate_names, boundaries, nw_centers = gate_coords(**config["gate"])
-        # boundaries['ymin'] -= config['kwant']['nwl']
-        # boundaries['ymax'] += config['kwant']['nwl']
+        gate_vertices, gate_names, boundaries, nw_centers = gate_coords(grid_spacing,
+                                                                        **config["gate"])
         poisson_system = discretize_heterostructure(config, boundaries, gate_vertices, gate_names)
-        # boundaries['ymin'] += config['kwant']['nwl']
-        # boundaries['ymax'] -= config['kwant']['nwl']
+
 
     linear_problem = linear_problem_instance(poisson_system)
 
