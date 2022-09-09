@@ -723,46 +723,6 @@ def voltage_loss(x, *argv):
     )
 
 
-def hamiltonian(
-    kwant_system,
-    linear_terms,
-    linear_coefficients: dict,
-    params_fn: callable,
-    **params,
-):
-    """
-    Build Hamiltonian with a linear potential and a potential
-    independent part. Parameters for both part are provided by
-    `params`.
-
-    Parameters
-    ----------
-    kwant_system: kwant builder
-    linear_terms:
-    linear_coefficients: dictionary with voltages for each gate
-    params_fn: position dep function describing trijunction
-    params: dictionary with parameters for the Hamiltonian
-
-    Returns
-    -------
-    numerical_hamiltonian
-    """
-    summed_ham = sum(
-        [
-            linear_coefficients[key] * linear_terms[key]
-            for key, value in linear_coefficients.items()
-        ]
-    )
-
-    base_ham = kwant_system.hamiltonian_submatrix(
-        sparse=True, params=params_fn(**params)
-    )
-
-    numerical_hamiltonian = base_ham + summed_ham
-
-    return numerical_hamiltonian
-
-
 def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_system):
     """Compute the quality of Majorana coupling in a Kwant system.
 
