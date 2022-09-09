@@ -605,37 +605,67 @@ def _depletion_relative_potential(potential, reference):
     return np.abs(potential[np.where(potential < reference)] - reference)
 
 
-def tune_phase(
-    *argv,
-    phase={"phi1": np.pi, "phi2": 0.0},
-):
+def tune_phase(*argv, phase={"phi1": np.pi, "phi2": 0.0}, n_eval=20):
+    """
+    Function returning an scalar to be optimised.
+    Arguments are passed as `argv` as required by `minimize_scalar`.
 
-    voltage, n_eval, kwant_sys, kwant_params_fn, gparams, linear_terms = argv
+    Parameters
+    ----------
+    argv: tuple of arguments
+        voltages: dictionary with voltages for each gate
+        kwant_sys:
+        kwant_params_fn:
+        gparams:
+        linear_terms:
+    phase: dictionary with phases
+    n_eval: number of eigenvalues
+
+    Returns
+    -------
+    evals: eigenvalues
+    """
+
+    voltages, kwant_sys, kwant_params_fn, gparams, linear_terms = argv
 
     gparams.update(phase)
 
     params = {**gparams, **linear_terms}
 
-    numerical_hamiltonian = hamiltonian(kwant_sys, voltage, kwant_params_fn, **params)
+    numerical_hamiltonian = hamiltonian(kwant_sys, voltages, kwant_params_fn, **params)
+    evals = eigsh(numerical_hamiltonian, n_eval)
 
-    return eigsh(numerical_hamiltonian, n_eval)
+    return evals
 
 
 def phase_loss(phi, *argv):
+    """
+    Loss function for the phase relation.
+
+    Parameters
+    ----------
+    phi: phase
+    argv: arguments for `tune_phase`
+        The first argument corresponds to the pair, e.g. left-right
+        For the rest of arguments see `tune_phase` documentation
+
+    Returns
+    -------
+    cost: energy of the first excited state
+
+    """
 
     pair = argv[0]
     phase = phase_pairs(pair, phi * np.pi)
 
     energies = tune_phase(*argv[1:], phase=phase)
 
-    no_eigenvalues = argv[2]
+    no_eigenvalues = len(energies)
     first_excited_state_index = 2
-    kwant_params = argv[-2]
-    scale = kwant_params["Delta"]
 
-    return (
-        -1 * energies[no_eigenvalues // 2 + first_excited_state_index] / scale
-    )  # energy of the first excited state
+    cost = -1 * energies[no_eigenvalues // 2 + first_excited_state_index]
+
+    return cost
 
 
 def voltage_loss(x, *argv):
@@ -726,7 +756,9 @@ def hamiltonian(
         sparse=True, params=params_fn(**params)
     )
 
-    return base_ham + summed_ham
+    numerical_hamiltonian = base_ham + summed_ham
+
+    return numerical_hamiltonian
 
 
 def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_system):
