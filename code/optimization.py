@@ -337,51 +337,24 @@ class Optimize:
                 )
 
 
-def configuration(config, change_config=[], poisson_system=[], boundaries = []):
+def configuration(config, change_config=[], poisson_system=[], boundaries=[]):
 
     if len(change_config):
         for local_config in change_config:
             config = dict_update(config, local_config)
-    
-    grid_spacing = config['device']['grid_spacing']['gate']
-    if not poisson_system:
-        gate_vertices, gate_names, boundaries, nw_centers = gate_coords(grid_spacing,
-                                                                        **config["gate"])
-        poisson_system = discretize_heterostructure(config, boundaries, gate_vertices, gate_names)
 
+    grid_spacing = config["device"]["grid_spacing"]["gate"]
+    if not poisson_system:
+        gate_vertices, gate_names, boundaries, nw_centers = gate_coords(
+            grid_spacing, **config["gate"]
+        )
+        poisson_system = discretize_heterostructure(
+            config, boundaries, gate_vertices, gate_names
+        )
 
     linear_problem = linear_problem_instance(poisson_system)
 
     return config, boundaries, nw_centers, poisson_system, linear_problem
-
-
-def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
-
-    a = scale
-    l = config["kwant"]["nwl"]
-    w = config["kwant"]["nww"]
-    
-    nw_centers['top'][1] += l
-
-    geometry = {
-        "nw_l": l * a,
-        "nw_w": w * a,
-        "s_w": (boundaries['xmax'] - boundaries['xmin']) * a,
-        "s_l": (boundaries['ymax'] - boundaries['ymin']) * a,
-        "centers": [nw_centers['left']*a, 
-                    nw_centers['right']*a, 
-                    nw_centers['top']*a]
-    }
-
-    ## Discretized Kwant system
-
-    trijunction, f_params = finite_system(**geometry)
-    trijunction = trijunction.finalized()
-
-    trijunction = trijunction
-    f_params = f_params
-
-    return geometry, trijunction, f_params
 
 
 def optimize_gate(
