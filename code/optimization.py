@@ -725,6 +725,7 @@ def voltage_loss(x, *argv):
 
 def hamiltonian(
     kwant_system,
+    linear_terms,
     linear_coefficients: dict,
     params_fn: callable,
     **params,
@@ -737,6 +738,7 @@ def hamiltonian(
     Parameters
     ----------
     kwant_system: kwant builder
+    linear_terms:
     linear_coefficients: dictionary with voltages for each gate
     params_fn: position dep function describing trijunction
     params: dictionary with parameters for the Hamiltonian
@@ -747,7 +749,7 @@ def hamiltonian(
     """
     summed_ham = sum(
         [
-            linear_coefficients[key] * params[key]
+            linear_coefficients[key] * linear_terms[key]
             for key, value in linear_coefficients.items()
         ]
     )
