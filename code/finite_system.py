@@ -47,7 +47,7 @@ def finite_system(**geometry):
         def wires_shape(x, y):
             for i in range(3):
                 x0, y0 = centers[i]
-                
+
                 if -w / 2 - x0 < x < w / 2 - x0:
                     if y0 - l <= y <= y0:
                         return mu[i]
@@ -122,3 +122,48 @@ def get_potential(potential):
 
     return f
 
+
+def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
+    """
+    Create kwant system describing a trijunction
+    Parameters
+    ----------
+    config: ?
+    boundaries: ?
+    nw_centers: ?
+    scale: ?
+
+    Returns
+    -------
+    geometry: dictionary with geometrical parameters
+    trijunction: kwant builder
+    f_params: position dependent function
+    """
+
+    a = scale
+    l = config["kwant"]["nwl"]
+    w = config["kwant"]["nww"]
+
+    nw_centers["top"][1] += l
+
+    geometry = {
+        "nw_l": l * a,
+        "nw_w": w * a,
+        "s_w": (boundaries["xmax"] - boundaries["xmin"]) * a,
+        "s_l": (boundaries["ymax"] - boundaries["ymin"]) * a,
+        "centers": [
+            nw_centers["left"] * a,
+            nw_centers["right"] * a,
+            nw_centers["top"] * a,
+        ],
+    }
+
+    ## Discretized Kwant system
+
+    trijunction, f_params = finite_system(**geometry)
+    trijunction = trijunction.finalized()
+
+    trijunction = trijunction
+    f_params = f_params
+
+    return geometry, trijunction, f_params
