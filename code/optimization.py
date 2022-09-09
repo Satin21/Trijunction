@@ -413,6 +413,25 @@ def _voltage_dict(
     close=0.0,
     arm="left",
 ):
+    """
+    Generate dictionary of voltages associated to the gates in the trijunction
+
+    Parameters
+    ----------
+    deplete:
+        voltage in the depleted regions
+    accumulate:
+        voltage of the accummulation top gate
+    close:
+        voltage of the arm selected to be closed
+    arm:
+        name of the closed arm
+
+    Returns
+    -------
+    voltages:
+        dicitonary filled with voltages and gates
+    """
 
     voltages = {}
     if arm != "":
@@ -680,6 +699,22 @@ def hamiltonian(
     params_fn: callable,
     **params,
 ):
+    """
+    Build Hamiltonian with a linear potential and a potential
+    independent part. Parameters for both part are provided by
+    `params`.
+
+    Parameters
+    ----------
+    kwant_system: kwant builder
+    linear_coefficients: dictionary with voltages for each gate
+    params_fn: position dep function describing trijunction
+    params: dictionary with parameters for the Hamiltonian
+
+    Returns
+    -------
+    numerical_hamiltonian
+    """
     summed_ham = sum(
         [
             linear_coefficients[key] * params[key]
@@ -750,14 +785,15 @@ def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_
     return -desired + np.log(undesired / desired + 1e-3)
 
 
-def optimize_phase_fn(voltages, pairs, kwant_params, no_eigenvalues = 10):
+def optimize_phase_fn(voltages, pairs, kwant_params, no_eigenvalues=10):
     optimal_phases = {}
     for voltage, pair in zip(voltages, pairs):
         args = [pair, voltage, no_eigenvalues]
         args = args + list(kwant_params.values())
 
-        sol = minimize_scalar(phase_loss, args=tuple(args), bounds=(0, 2), 
-                              method='bounded')
+        sol = minimize_scalar(
+            phase_loss, args=tuple(args), bounds=(0, 2), method="bounded"
+        )
 
         optimal_phases[pair] = phase_pairs(pair, sol.x * np.pi)
 
