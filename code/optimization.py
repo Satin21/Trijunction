@@ -630,9 +630,9 @@ def tune_phase(*argv, phase={"phi1": np.pi, "phi2": 0.0}, n_eval=20):
 
     gparams.update(phase)
 
-    params = {**gparams, **linear_terms}
-
-    numerical_hamiltonian = hamiltonian(kwant_sys, voltages, kwant_params_fn, **params)
+    numerical_hamiltonian = hamiltonian(
+        kwant_sys, linear_terms, voltages, kwant_params_fn, **params
+    )
     evals = eigsh(numerical_hamiltonian, n_eval)
 
     return evals
