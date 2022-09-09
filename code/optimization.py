@@ -9,7 +9,7 @@ from scipy.optimize import minimize, minimize_scalar, approx_fprime
 
 # sys.path.append(os.path.realpath('./../spin-qubit/'))
 
-sys.path.append('/home/srangaswamykup/trijunction_design/spin-qubit/')
+sys.path.append("/home/tinkerer/trijunction_design/spin-qubit/")
 
 from discretize import discretize_heterostructure
 from gate_design import gate_coords
@@ -27,7 +27,6 @@ from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
 from utility import gather_data
 from tools import linear_Hamiltonian
-
 
 
 class Optimize:
@@ -66,8 +65,6 @@ class Optimize:
 
     def set_params(self):
 
-        ## Check whether the two sides of the device are symmetric around x = zero
-
         device_config = self.config["device"]
 
         self.site_coords, self.site_indices = discrete_system_coordinates(
@@ -96,9 +93,9 @@ class Optimize:
         self.geometry, self.trijunction, self.f_params = kwantsystem(
             self.config, self.boundaries, self.nw_centers, self.scale
         )
-        
+
         self.check_symmetry()
-        
+
         voltage_regions = list(self.poisson_system.regions.voltage.tag_points.keys())
 
         print("Finding linear part of the tight-binding Hamiltonian")
@@ -166,7 +163,7 @@ class Optimize:
             self.boundaries,
             self.nw_centers,
             self.poisson_system,
-            self.linear_problem
+            self.linear_problem,
         ) = configuration(
             self.config, change_config=change_config, poisson_system=poisson_system
         )
@@ -175,11 +172,14 @@ class Optimize:
         return self.config, self.boundaries, self.poisson_system, self.linear_problem
 
     def check_symmetry(self):
-        
+        """
+        Check that the potential is symmetric in the kwant and poisson systems.
+        """
+
         unique_indices = self.site_coords[:, 2] == 0
         coords = self.site_coords[unique_indices]
         indices = self.site_indices[unique_indices]
-        
+
         charges = {}
         pot = gate_potential(
             self.poisson_system,
@@ -190,14 +190,14 @@ class Optimize:
             charges,
             offset=self.offset[[0, 1]],
         )
-        
+
         poisson_sites = np.array(list(pot.keys()))
 
         def diff_pot(x, y):
-            return pot[ta.array((x, y))] - pot[ta.array((-x, y))] 
+            return pot[ta.array((x, y))] - pot[ta.array((-x, y))]
 
         to_check = [diff_pot(*site) for site in poisson_sites]
-        
+
         assert max(to_check) < 1e-9
 
         mu = parameters.bands[0]
@@ -210,12 +210,15 @@ class Optimize:
             return f_mu(x, y) - f_mu(-x, y)
 
         kwant_sites = np.array(list(site.pos for site in self.trijunction.sites))
-        
+
         to_check = [diff_f_mu(*site) for site in kwant_sites]
-        
+
         assert max(to_check) < 1e-9
 
-    def set_voltages(self, newvoltages):
+    def set_voltages(self, newvoltages: np.ndarray):
+        """
+        Update voltages dictionary to `newvoltages`.
+        """
         self.voltages.update(dict(zip(self.voltage_regions, newvoltages)))
 
     def dep_acc_voltages(self, pair, initial_condition):
