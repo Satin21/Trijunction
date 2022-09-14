@@ -60,12 +60,23 @@ def build_matrices(config):
         voltage_regions,
     )
     
-    def base_ham(**params):
-        return trijunction.hamiltonian_submatrix(
-        sparse=True, params=f_params(**params)
+    zero_potential = dict(
+        zip(
+            ta.array(site_coords[:, [0, 1]] - offset),
+            np.zeros(len(site_coords)),
+        )
     )
     
-    return base_ham, linear_terms
+    mu = codes.parameters.bands[0]
+    params = codes.parameters.junction_parameters([mu,mu,mu])
+    params.update(potential=zero_potential)
+    
+    def base_ham(parameters):
+        return trijunction.hamiltonian_submatrix(
+        sparse=True, params=f_params(**parameters)
+    )
+    
+    return base_ham, linear_terms, params
 
 
 config = {
