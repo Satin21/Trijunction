@@ -19,65 +19,6 @@ from Hamiltonian import discrete_system_coordinates
 from potential import linear_problem_instance
 
 
-def build_matrices(config):
-
-    gates_vertex, gate_names, boundaries, nw_centers = gate_coords(
-        grid_spacing=1
-    )
-
-    geometry, trijunction, f_params = codes.finite_system.kwantsystem(
-        config, boundaries, nw_centers
-    )
-
-    poisson_system = discretize_heterostructure(
-        config, boundaries, gates_vertex, gate_names
-    )
-
-    linear_problem = linear_problem_instance(poisson_system)
-
-    site_coords, site_indices = discrete_system_coordinates(
-        poisson_system, [("charge", "twoDEG")], boundaries=None
-    )
-
-    crds = site_coords[:, [0, 1]]
-    grid_spacing = config["device"]["grid_spacing"]["twoDEG"]
-    offset = crds[0] % grid_spacing
-
-    poisson_params = {
-        "linear_problem": linear_problem,
-        "site_coords": site_coords,
-        "site_indices": site_indices,
-        "offset": offset,
-    }
-
-    voltage_regions = list(poisson_system.regions.voltage.tag_points.keys())
-
-    _, linear_terms = linear_Hamiltonian(
-        poisson_system,
-        poisson_params,
-        trijunction,
-        f_params,
-        voltage_regions,
-    )
-    
-    zero_potential = dict(
-        zip(
-            ta.array(site_coords[:, [0, 1]] - offset),
-            np.zeros(len(site_coords)),
-        )
-    )
-    
-    mu = codes.parameters.bands[0]
-    params = codes.parameters.junction_parameters([mu,mu,mu])
-    params.update(potential=zero_potential)
-    
-    def base_ham(parameters):
-        return trijunction.hamiltonian_submatrix(
-        sparse=True, params=f_params(**parameters)
-    )
-    
-    return base_ham, linear_terms, params
-
 
 config = {
     "device":
@@ -92,5 +33,59 @@ config = {
     "kwant":
         {"nwl": 150, "nww": 7}
 }
+
+
+gates_vertex, gate_names, boundaries, nw_centers = gate_coords(
+    grid_spacing=1
+)
+
+geometry, trijunction, f_params = codes.finite_system.kwantsystem(
+    config, boundaries, nw_centers
+)
+
+poisson_system = discretize_heterostructure(
+    config, boundaries, gates_vertex, gate_names
+)
+
+linear_problem = linear_problem_instance(poisson_system)
+
+site_coords, site_indices = discrete_system_coordinates(
+    poisson_system, [("charge", "twoDEG")], boundaries=None
+)
+
+crds = site_coords[:, [0, 1]]
+grid_spacing = config["device"]["grid_spacing"]["twoDEG"]
+offset = crds[0] % grid_spacing
+
+poisson_params = {
+    "linear_problem": linear_problem,
+    "site_coords": site_coords,
+    "site_indices": site_indices,
+    "offset": offset,
+}
+
+voltage_regions = list(poisson_system.regions.voltage.tag_points.keys())
+
+_, linear_terms = linear_Hamiltonian(
+    poisson_system,
+    poisson_params,
+    trijunction,
+    f_params,
+    voltage_regions,
+)
+
+zero_potential = dict(
+    zip(
+        ta.array(site_coords[:, [0, 1]] - offset),
+        np.zeros(len(site_coords)),
+    )
+)
+
+def base_ham(parameters):
+    parameters.update(potential=zero_potential)
+    return trijunction.hamiltonian_submatrix(
+        sparse=True, params=f_params(**parameters)
+    )
+
 
 base_ham, linear_terms = build_matrices(config)
