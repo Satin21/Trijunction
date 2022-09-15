@@ -5,28 +5,25 @@ import sys, os
 import kwant
 import dask.bag as db
 from scipy.optimize import minimize, minimize_scalar, approx_fprime
-
+from collections import OrderedDict
+import tinyarray as ta
 
 # sys.path.append(os.path.realpath('./../spin-qubit/'))
 
 sys.path.append("/home/tinkerer/trijunction_design/spin-qubit/")
 
-from discretize import discretize_heterostructure
-from gate_design import gate_coords
+from codes.discretize import discretize_heterostructure
+from codes.gate_design import gate_coords
 
-from finite_system import finite_system
-from tools import dict_update, find_resonances
-from constants import scale, majorana_pair_indices, voltage_keys, phase_pairs
-import parameters
-import tools
-from collections import OrderedDict
-import tinyarray as ta
-from utils import wannierize, svd_transformation, eigsh
+from codes.finite_system import finite_system
+from codes.tools import dict_update, find_resonances, linear_Hamiltonian, hamiltonian
+from codes.constants import scale, majorana_pair_indices, voltage_keys, phase_pairs
+from codes.parameters import junction_parameters, bands
+from codes.utils import wannierize, svd_transformation, eigsh
 
 from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
 from utility import gather_data
-from tools import linear_Hamiltonian
 
 
 class Optimize:
@@ -200,8 +197,8 @@ class Optimize:
 
         assert max(to_check) < 1e-9
 
-        mu = parameters.bands[0]
-        params = parameters.junction_parameters(m_nw=[mu, mu, mu])
+        mu = bands[0]
+        params = junction_parameters(m_nw=[mu, mu, mu])
         params.update(potential=pot)
 
         f_mu = self.f_params(**params)["mu"]
@@ -631,7 +628,7 @@ def tune_phase(*argv, phase={"phi1": np.pi, "phi2": 0.0}, n_eval=20):
     gparams.update(phase)
 
     numerical_hamiltonian = hamiltonian(
-        kwant_sys, linear_terms, voltages, kwant_params_fn, **params
+        kwant_sys, linear_terms, voltages, kwant_params_fn, **gparams
     )
     evals = eigsh(numerical_hamiltonian, n_eval)
 
