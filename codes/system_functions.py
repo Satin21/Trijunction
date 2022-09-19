@@ -1,22 +1,31 @@
-import numpy as np
-from codes.trijunction_matrices import *
+from typing import Dict, Tuple
+from codes.trijunction_matrices import make_system
+from codes.utils import eigsh
 
 
-def base_ham(parameters):
-    parameters.update(potential=zero_potential)
-    return trijunction.hamiltonian_submatrix(
+def base_ham(parameters: Dict, trijunction, f_params):
+
+    ham = trijunction.hamiltonian_submatrix(
         sparse=True, params=f_params(**parameters)
     )
 
+    return ham
+
 
 def adaptive_two_parameters(
-    xy,
-    voltages,
-    params,
-    gates
+    xy: Tuple[float],
+    voltages: Dict,
+    params: Dict,
+    gates: Tuple[str]
 ):
-
-    num_ham = base_ham(params)
+    """
+    Energy of the first non-zero eigenvalue.
+    """
+    
+    zero_potential, linear_terms, trijunction, f_params = make_system()
+    
+    params.update(potential=zero_potential)
+    num_ham = base_ham(params, trijunction, f_params)
 
     for i, gate in enumerate(gates):
         voltages[gate+'_1'] = xy[i]
