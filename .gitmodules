@@ -1,6 +1,3 @@
 [submodule "data"]
 	url = ../trijunction-design-data
 	path = data
-[submodule "spin-qubit"]
-	path = spin-qubit
-	url = https://gitlab.kwant-project.org/qt/spin-qubit.git
