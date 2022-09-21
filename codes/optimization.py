@@ -10,15 +10,15 @@ import tinyarray as ta
 
 # sys.path.append(os.path.realpath('./../spin-qubit/'))
 
-sys.path.append("/home/tinkerer/trijunction_design/spin-qubit/")
+sys.path.append("/home/tinkerer/spin-qubit/")
 
 from codes.discretize import discretize_heterostructure
 from codes.gate_design import gate_coords
 
 from codes.finite_system import finite_system
-from codes.tools import dict_update, find_resonances, linear_Hamiltonian, hamiltonian
-from codes.constants import scale, majorana_pair_indices, voltage_keys, phase_pairs
-from codes.parameters import junction_parameters, bands
+from codes.tools import linear_Hamiltonian, hamiltonian
+from codes.constants import scale, majorana_pair_indices, voltage_keys, bands
+from codes.parameters import junction_parameters, dict_update, phase_pairs
 from codes.utils import wannierize, svd_transformation, eigsh
 
 from potential import gate_potential, linear_problem_instance
@@ -197,8 +197,7 @@ class Optimize:
 
         assert max(to_check) < 1e-9
 
-        mu = bands[0]
-        params = junction_parameters(m_nw=[mu, mu, mu])
+        params = junction_parameters()
         params.update(potential=pot)
 
         f_mu = self.f_params(**params)["mu"]
@@ -232,7 +231,7 @@ class Optimize:
         args = tuple(
             self.poisson_system,
             self.optimizer_args["poisson"],
-            parameters.bands[0],
+            bands[0],
             self.optimizer_args["dep_region"],
             self.optimizer_args["acc_region"],
         )
@@ -447,79 +446,6 @@ def _voltage_dict(
     return voltages
 
 
-def phase_spectrum(
-    Cluster,
-    nnodes,
-    cluster_options,
-    cluster_dashboard_link,
-    voltages,
-    no_eigenvalues,
-    kwant_sys,
-    kwant_params_fn,
-    general_params,
-    linear_terms,
-    depleteV=[],
-    acumulateV=[],
-    closeV=[],
-):
-
-    potentials = []
-    arms = ["left", "right", "top"]
-
-    if not len(voltages):
-        voltages = [
-            _voltage_dict(depleteV, acumulateV, close=closeV, arm=arms[i])
-            for i in range(3)
-        ]
-    elif not isinstance(depleteV, list):
-        voltages = voltages
-
-    phases = np.linspace(0, 2, 100) * np.pi
-    phis1 = [{"phi1": phi, "phi2": 0} for phi in phases]
-    phis2 = [{"phi2": phi, "phi1": 0} for phi in phases]
-    phis = [phis2, phis2, phis1]
-
-    phase_results = []
-
-    with Cluster(cluster_options) as cluster:
-
-        cluster.scale(n=nnodes)
-        client = cluster.get_client()
-        print(cluster_dashboard_link + cluster.dashboard_link[17:])
-
-        for voltage, phi in zip(voltages, phis):
-            args = (
-                voltage,
-                no_eigenvalues,
-                kwant_sys,
-                kwant_params_fn,
-                general_params,
-                linear_terms,
-            )
-
-            arg_db = db.from_sequence(phi)
-            result = db.map(tune_phase, *args, phase=arg_db).compute()
-
-            energies = []
-            for energy in result:
-                energies.append(energy)
-            phase_results.append(energies)
-
-    max_phis_id = []
-    for pair in phase_results:
-        max_phis_id.append(
-            find_resonances(energies=np.array(pair), n=no_eigenvalues, sign=1, i=2)[1]
-        )
-    max_phis_id = np.array(max_phis_id).flatten()
-    max_phis = phases[max_phis_id] / np.pi
-
-    assert (
-        np.abs(sum([1 - max_phis[0], 1 - max_phis[1]])) < 1e-9
-    )  # check whether the max phases are symmetric for LC and RC pairs
-
-    return max_phis, phase_results
-
-
 def potential_shape_loss(x, *argv):
 
     if len(x) == 4:
@@ -681,8 +607,7 @@ def voltage_loss(x, *argv):
     # dep_points, acc_points = argv[-3:-1]
     energy_scale = argv[-1]
 
-    mu = parameters.bands[0]
-    params = parameters.junction_parameters(m_nw=[mu, mu, mu])
+    params = parameters.junction_parameters()
 
     # potential, potential_loss = potential_shape_loss(
     #     x,

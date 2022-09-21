@@ -1,104 +1,43 @@
-import numpy as np
 from scipy.constants import electron_mass, hbar
-
-# data extracted from sub_bands.ipynb
-# Zeeman fields for the topological transition at each sub-band
-
-
-# Bottom of each transverse band
-bands = [
-    0.0023960204649275973,
-    0.009605416498312178,
-    0.020395040147213304,
-    0.03312226901926766,
-    0.045849497891322026,
-    0.056639121540223145,
-    0.06384851757360771,
-]
-
-b = 0.001
-
-phi12 = 1.23232323 * np.pi
-phi13 = 0.02020202 * np.pi
-phi23 = 1.97979798 * np.pi
-phis = np.array([1.23232323, 0.02020202, 1.97979798]) * np.pi
+from collections.abc import Mapping
+from codes.constants import bands, voltage_keys
 
 
-def pairs_parameters(index, phis1=[0, 0, 0], phis2=[0, 0, 0]):
-    mu = bands[index]
-    params_LR = {
-        "mus_nw": np.array([mu, mu, -2]),
-        "phi1": phis1[0],
-        "phi2": phis2[0],
-        "pair": "LR",
-    }
-    params_LC = {
-        "mus_nw": np.array([mu, -2, mu]),
-        "phi1": phis1[1],
-        "phi2": phis2[1],
-        "pair": "CR",
-    }
-    params_CR = {
-        "mus_nw": np.array([-2, mu, mu]),
-        "phi2": phis1[2],
-        "phi1": phis2[2],
-        "pair": "LC",
-    }
-    params = [params_LR, params_LC, params_CR]
-    return params
+def voltage_dict(x, dirichlet=False):
+    """Return dictionary of gate voltages
+    x: list
+    voltages
 
-
-def phase(pair, phis=phis):
-
-    if pair == 0:
-        key_phi = "phi1"
-    else:
-        key_phi = "phi2"
-
-    extra_params = {key_phi: phis[pair]}
-    return extra_params
-
-
-def phase_params(band_index=0, n=100):
-    """ """
-    phases = np.linspace(0, 2 * np.pi, n)
-    params = []
-
-    for phase in phases:
-
-        phis1 = [phase, 0, 0]
-        phis2 = [0, phase, phase]
-        wires = pairs_parameters(band_index, phis1=phis1, phis2=phis2)
-        for wire in wires:
-            params.append(wire)
-
-    return params
-
-
-def single_parameter(key, vals, max_phis, offset):
+    dirichlet: bool
+    Whether to add dirichlet gates
     """
-    Make an array of parameters for three pairs of nanowires with the phase
-    differences tunned to a given value.
-    Parameters:
-    -----------
-        key: str to be varied
-        vals: np.array with values to be changed
-        max_phis: np.array with three pase differences for each nanowire pair
 
-    Returns:
-    --------
-        params: array of parameters
+    voltages = {key: x[index] for key, index in voltage_keys.items()}
+
+    if dirichlet:
+        for i in range(6):
+            voltages["dirichlet_" + str(i)] = 0.0
+
+    return voltages
+
+
+def pair_voltages(initial =(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5):
     """
-    params = []
-    wires = pairs_parameters(index=0, phis=np.pi * max_phis)
-    for val in vals:
-        for wire in wires:
-            dic = {key: val, "offset": offset}
-            params.append(wire | dic)
-    return params
+    
+    """
+    pairs = ['right-top', 'left-top', 'left-right']
+    voltages = OrderedDict()
+    initial_condition = OrderedDict()
+
+    for i, pair in enumerate(pairs):
+        initial[i] = depleted
+        voltages[pair] = voltage_dict(initial, True)
+        initial_condition[pair] = initial.copy()
+
+    return voltages
 
 
-def junction_parameters(m_nw, bx=b):
+def junction_parameters(m_nw=[bands[0]] * 3, bx=0.001):
     """
     Typical parameters
     """
@@ -119,3 +58,22 @@ def junction_parameters(m_nw, bx=b):
         a=a,
     )
     return parameters
+
+
+def phase_pairs(pair, phi):
+    if pair == "right-top":
+        return {"phi2": phi, "phi1": 0}
+    if pair == "left-top":
+        return {"phi2": phi, "phi1": 0}
+    if pair == "left-right":
+        return {"phi1": phi, "phi2": 0}
+
+
+def dict_update(d, u):
+    # https://stackoverflow.com/a/3233356
+    for k, v in u.items():
+        if isinstance(v, Mapping):
+            d[k] = dict_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d

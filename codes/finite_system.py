@@ -70,15 +70,7 @@ def finite_system(**geometry):
 
         return system
 
-    # def side_geometry(potential, pair, offset):
-    #
-    #       def f(x, y):
-    #          if pair=='LR' or (pair=='LC' and x<offset) or (pair=='CR' and x>-offset):
-    #             return potential(x, y)
-    #        else:
-    #           return -2
-    #  return f
-
+    
     def f_params(**params):
 
         mus_nw = params.pop("mus_nw")
