@@ -9,25 +9,29 @@ from scipy.optimize import minimize, minimize_scalar, approx_fprime
 
 # sys.path.append(os.path.realpath('./../spin-qubit/'))
 
-sys.path.append('/home/srangaswamykup/trijunction_design/spin-qubit/')
+sys.path.append("/home/srangaswamykup/trijunction_design/spin-qubit/")
 
 from discretize import discretize_heterostructure
 from gate_design import gate_coords
 
-from finite_system import finite_system
-from tools import dict_update, find_resonances
+from finite_system import finite_system, kwantsystem
 from constants import scale, majorana_pair_indices, voltage_keys, phase_pairs
 import parameters
-import tools
 from collections import OrderedDict
 import tinyarray as ta
-from utils import wannierize, svd_transformation, eigsh
+from utils import (
+    wannierize,
+    svd_transformation,
+    eigsh,
+    dep_acc_regions,
+    hamiltonian,
+    linear_Hamiltonian,
+    dict_update,
+)
 
 from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
 from utility import gather_data
-from tools import linear_Hamiltonian
-
 
 
 class Optimize:
@@ -70,9 +74,13 @@ class Optimize:
 
         device_config = self.config["device"]
 
-        self.site_coords, self.site_indices = discrete_system_coordinates(
-            self.poisson_system, [("charge", "twoDEG")], boundaries=None
+        site_coords, site_indices = discrete_system_coordinates(
+            self.poisson_system, [("mixed", "twoDEG")], boundaries=None
         )
+
+        unique_indices = site_coords[:, 2] == 0
+        self.site_coords = site_coords[unique_indices]
+        self.site_indices = site_indices[unique_indices]
 
         self.grid_points = self.poisson_system.grid.points
         voltage_regions = self.poisson_system.regions.voltage.tag_points
@@ -96,9 +104,9 @@ class Optimize:
         self.geometry, self.trijunction, self.f_params = kwantsystem(
             self.config, self.boundaries, self.nw_centers, self.scale
         )
-        
+
         self.check_symmetry()
-        
+
         voltage_regions = list(self.poisson_system.regions.voltage.tag_points.keys())
 
         print("Finding linear part of the tight-binding Hamiltonian")
@@ -151,9 +159,11 @@ class Optimize:
         assert np.allclose(self.mlwf @ self.mlwf.T.conj(), np.eye(len(self.mlwf)))
 
         self.optimizer_args = OrderedDict(
-            site_coords=self.site_coords,
+            poisson_system=self.poisson_system,
+            poisson_params=poisson_params,
             kwant_system=self.trijunction,
             kwant_params_fn=self.f_params,
+            geometry=self.geometry,
             linear_terms=linear_terms,
             mlwf=self.mlwf,
         )
@@ -166,7 +176,7 @@ class Optimize:
             self.boundaries,
             self.nw_centers,
             self.poisson_system,
-            self.linear_problem
+            self.linear_problem,
         ) = configuration(
             self.config, change_config=change_config, poisson_system=poisson_system
         )
@@ -175,29 +185,25 @@ class Optimize:
         return self.config, self.boundaries, self.poisson_system, self.linear_problem
 
     def check_symmetry(self):
-        
-        unique_indices = self.site_coords[:, 2] == 0
-        coords = self.site_coords[unique_indices]
-        indices = self.site_indices[unique_indices]
-        
+
         charges = {}
         pot = gate_potential(
             self.poisson_system,
             self.linear_problem,
-            coords[:, [0, 1]],
-            indices,
+            self.site_coords[:, [0, 1]],
+            self.site_indices,
             self.voltages,
             charges,
             offset=self.offset[[0, 1]],
         )
-        
+
         poisson_sites = np.array(list(pot.keys()))
 
         def diff_pot(x, y):
-            return pot[ta.array((x, y))] - pot[ta.array((-x, y))] 
+            return pot[ta.array((x, y))] - pot[ta.array((-x, y))]
 
         to_check = [diff_pot(*site) for site in poisson_sites]
-        
+
         assert max(to_check) < 1e-9
 
         mu = parameters.bands[0]
@@ -210,9 +216,9 @@ class Optimize:
             return f_mu(x, y) - f_mu(-x, y)
 
         kwant_sites = np.array(list(site.pos for site in self.trijunction.sites))
-        
+
         to_check = [diff_f_mu(*site) for site in kwant_sites]
-        
+
         assert max(to_check) < 1e-9
 
     def set_voltages(self, newvoltages):
@@ -224,7 +230,10 @@ class Optimize:
             self.site_coords[:, [0, 1]], axis=0, return_index=True
         )[1]
         depletion, accumulation = dep_acc_regions(
-            self.poisson_system, self.site_indices[unique_indices], self.geometry, pair
+            self.poisson_system,
+            self.site_indices[unique_indices],
+            self.nw_centers,
+            pair,
         )
         self.optimizer_args["depletion"] = depletion
         self.optimizer_args["accumulation"] = accumulation
@@ -334,54 +343,41 @@ class Optimize:
                 )
 
 
-def configuration(config, change_config=[], poisson_system=[], boundaries = []):
+def check_grid(A, B):
+    if A % B:
+        return A % B
+    return B
+
+
+def configuration(config, change_config=[], poisson_system=[], boundaries=[]):
 
     if len(change_config):
         for local_config in change_config:
             config = dict_update(config, local_config)
-    
-    grid_spacing = config['device']['grid_spacing']['gate']
-    if not poisson_system:
-        gate_vertices, gate_names, boundaries, nw_centers = gate_coords(grid_spacing,
-                                                                        **config["gate"])
-        poisson_system = discretize_heterostructure(config, boundaries, gate_vertices, gate_names)
 
+    grid_spacing = config["device"]["grid_spacing"]
+    thickness = config["device"]["thickness"]
+    if not poisson_system:
+
+        grid_spacing = check_grid(thickness["gates"], grid_spacing["gate"])
+
+        gate_vertices, gate_names, boundaries, nw_centers = gate_coords(
+            **config["gate"]
+        )
+
+        poisson_system = discretize_heterostructure(
+            config, boundaries, gate_vertices, gate_names
+        )
 
     linear_problem = linear_problem_instance(poisson_system)
 
     return config, boundaries, nw_centers, poisson_system, linear_problem
 
 
-def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
-
-    a = scale
-    l = config["kwant"]["nwl"]
-    w = config["kwant"]["nww"]
-    
-    nw_centers['top'][1] += l
-
-    geometry = {
-        "nw_l": l * a,
-        "nw_w": w * a,
-        "s_w": (boundaries['xmax'] - boundaries['xmin']) * a,
-        "s_l": (boundaries['ymax'] - boundaries['ymin']) * a,
-        "centers": [nw_centers['left']*a, 
-                    nw_centers['right']*a, 
-                    nw_centers['top']*a]
-    }
-
-    ## Discretized Kwant system
-
-    trijunction, f_params = finite_system(**geometry)
-    trijunction = trijunction.finalized()
-
-    trijunction = trijunction
-    f_params = f_params
-
-    return geometry, trijunction, f_params
+# -------------- Cost function for optimizing Majorana pair(s) coupling through gate tuning------------
 
 
-def optimize_gate(
+def optimize_voltage(
     pairs: list,
     initial_conditions: list,
     optimal_phases: list,
@@ -389,20 +385,18 @@ def optimize_gate(
     scale=1e-3,
 ):
 
-    site_coords = optimizer_args["site_coords"]
-
-    unique_indices = np.unique(site_coords[:, [0, 1]], axis=0, return_index=True)[1]
     optimal_voltages = {}
     for pair, initial, phase in zip(pairs, initial_conditions, optimal_phases):
-        # depletion, accumulation = dep_acc_regions(self.poisson_system,
-        #                                           self.site_indices[unique_indices],
-        #                                           self.geometry,
-        #                                           pair
-        #                                          )
+        depletion, accumulation = dep_acc_regions(
+            optimizer_args["poisson_system"],
+            optimizer_args["poisson_params"]["site_indices"],
+            optimizer_args["nw_centers"],
+            pair,
+        )
         optimizer_args["optimal_phase"] = phase
         optimizer_args["desired_pair"] = pair
-        # self.optimizer_args['depletion'] = depletion
-        # self.optimizer_args['accumulation'] = accumulation
+        optimizer_args["depletion"] = depletion
+        optimizer_args["accumulation"] = accumulation
         optimizer_args["energy_scale"] = scale
 
         print(f"Optimizing pair {pair}")
@@ -420,9 +414,9 @@ def optimize_gate(
             args=tuple(list(optimizer_args.values())),
             method="trust-constr",
             options={
-                # "verbose": 2,
-                "initial_tr_radius": 1e-4,
-                "gtol": 1e-1,
+                "verbose": 2,
+                "initial_tr_radius": 1e-3,
+                # "gtol": 1e-1,
             },
         )
 
@@ -431,101 +425,61 @@ def optimize_gate(
     return optimal_voltages
 
 
-def _voltage_dict(
-    deplete,
-    accumulate,
-    close=0.0,
-    arm="left",
-):
+def voltage_loss(x, *argv):
+    # Unpack argv
+    voltages = {key: x[index] for key, index in voltage_keys.items()}
 
-    voltages = {}
-    if arm != "":
-        for i in range(1, 3):
-            voltages[arm + "_" + str(i)] = close
-
-    for channel in set(["left", "right", "top"]) - set([arm]):
-        for i in range(1, 3):
-            voltages[channel + "_" + str(i)] = deplete
-
-    voltages["global_accumul"] = accumulate
-
+    # Boundary conditions on system sides.
     for i in range(6):
         voltages["dirichlet_" + str(i)] = 0.0
 
-    return voltages
+    poisson_system, poisson_params = argv[:2]
+    kwant_system, kwant_params_fn, geometry = argv[2:5]
+    linear_terms = argv[5]
+    mlwf = argv[6]
+    optimal_phase = argv[8]
+    pair = argv[9]
+    dep_points, acc_points = argv[10:12]
+    energy_scale = argv[-1]
 
+    mu = parameters.bands[0]
+    params = parameters.junction_parameters(m_nw=[mu, mu, mu])
 
-def phase_spectrum(
-    Cluster,
-    nnodes,
-    cluster_options,
-    cluster_dashboard_link,
-    voltages,
-    no_eigenvalues,
-    kwant_sys,
-    kwant_params_fn,
-    general_params,
-    linear_terms,
-    depleteV=[],
-    acumulateV=[],
-    closeV=[],
-):
+    potential, potential_loss = potential_shape_loss(
+        x, poisson_system, poisson_params, mu, dep_points, acc_points
+    )
+    if potential_loss:
+        print(potential_loss)
+        return potential_loss + energy_scale
 
-    potentials = []
-    arms = ["left", "right", "top"]
-
-    if not len(voltages):
-        voltages = [
-            _voltage_dict(depleteV, acumulateV, close=closeV, arm=arms[i])
-            for i in range(3)
-        ]
-    elif not isinstance(depleteV, list):
-        voltages = voltages
-
-    phases = np.linspace(0, 2, 100) * np.pi
-    phis1 = [{"phi1": phi, "phi2": 0} for phi in phases]
-    phis2 = [{"phi2": phi, "phi1": 0} for phi in phases]
-    phis = [phis2, phis2, phis1]
-
-    phase_results = []
-
-    with Cluster(cluster_options) as cluster:
-
-        cluster.scale(n=nnodes)
-        client = cluster.get_client()
-        print(cluster_dashboard_link + cluster.dashboard_link[17:])
-
-        for voltage, phi in zip(voltages, phis):
-            args = (
-                voltage,
-                no_eigenvalues,
-                kwant_sys,
-                kwant_params_fn,
-                general_params,
-                linear_terms,
-            )
-
-            arg_db = db.from_sequence(phi)
-            result = db.map(tune_phase, *args, phase=arg_db).compute()
-
-            energies = []
-            for energy in result:
-                energies.append(energy)
-            phase_results.append(energies)
-
-    max_phis_id = []
-    for pair in phase_results:
-        max_phis_id.append(
-            find_resonances(energies=np.array(pair), n=no_eigenvalues, sign=1, i=2)[1]
+    potential = dict(
+        zip(
+            ta.array(poisson_params["site_coords"][:, [0, 1]]),
+            np.zeros(len(poisson_params["site_coords"])),
         )
-    max_phis_id = np.array(max_phis_id).flatten()
-    max_phis = phases[max_phis_id] / np.pi
+    )
+    params.update(potential=potential)
 
-    assert (
-        np.abs(sum([1 - max_phis[0], 1 - max_phis[1]])) < 1e-9
-    )  # check whether the max phases are symmetric for LC and RC pairs
+    params.update(optimal_phase)
 
-    return max_phis, phase_results
+    kwant_params = {**params, **linear_terms}
+
+    numerical_hamiltonian = hamiltonian(
+        kwant_system, voltages, kwant_params_fn, **kwant_params
+    )
+
+    # shuffle the wavwfunctions based on the Majorana pairs to be optimized
+
+    pair_indices = majorana_pair_indices[pair].copy()
+    pair_indices.append(list(set(range(3)) - set(pair_indices))[0])
+    shuffle = pair_indices + [-3, -2, -1]
+    desired_order = np.array(list(range(2, 5)) + list(range(2)) + [5])[shuffle]
+
+    reference_wave_functions = mlwf[desired_order]
+
+    return majorana_loss(
+        numerical_hamiltonian, reference_wave_functions, energy_scale, kwant_system
+    )
 
 
 def potential_shape_loss(x, *argv):
@@ -610,114 +564,6 @@ def _depletion_relative_potential(potential, reference):
     return np.abs(potential[np.where(potential < reference)] - reference)
 
 
-def tune_phase(
-    *argv,
-    phase={"phi1": np.pi, "phi2": 0.0},
-):
-
-    voltage, n_eval, kwant_sys, kwant_params_fn, gparams, linear_terms = argv
-
-    gparams.update(phase)
-
-    params = {**gparams, **linear_terms}
-
-    numerical_hamiltonian = hamiltonian(kwant_sys, voltage, kwant_params_fn, **params)
-
-    return eigsh(numerical_hamiltonian, n_eval)
-
-
-def phase_loss(phi, *argv):
-
-    pair = argv[0]
-    phase = phase_pairs(pair, phi * np.pi)
-
-    energies = tune_phase(*argv[1:], phase=phase)
-
-    no_eigenvalues = argv[2]
-    first_excited_state_index = 2
-    kwant_params = argv[-2]
-    scale = kwant_params["Delta"]
-
-    return (
-        -1 * energies[no_eigenvalues // 2 + first_excited_state_index] / scale
-    )  # energy of the first excited state
-
-
-def voltage_loss(x, *argv):
-    # Unpack argv
-    voltages = {key: x[index] for key, index in voltage_keys.items()}
-
-    # Boundary conditions on system sides.
-    for i in range(6):
-        voltages["dirichlet_" + str(i)] = 0.0
-
-    site_coords, kwant_system, kwant_params_fn = argv[:3]
-    linear_terms = argv[3]
-    mlwf = argv[4]
-    optimal_phase = argv[5]
-    pair = argv[6]
-    # dep_points, acc_points = argv[-3:-1]
-    energy_scale = argv[-1]
-
-    mu = parameters.bands[0]
-    params = parameters.junction_parameters(m_nw=[mu, mu, mu])
-
-    # potential, potential_loss = potential_shape_loss(
-    #     x,
-    #     poisson_system,
-    #     poisson_params,
-    #     mu,
-    #     dep_points,
-    #     acc_points
-    # )
-    # if potential_loss:
-    #     return potential_loss
-
-    potential = dict(zip(ta.array(site_coords[:, [0, 1]]), np.zeros(len(site_coords))))
-    params.update(potential=potential)
-
-    params.update(optimal_phase)
-
-    kwant_params = {**params, **linear_terms}
-
-    numerical_hamiltonian = hamiltonian(
-        kwant_system, voltages, kwant_params_fn, **kwant_params
-    )
-
-    # shuffle the wavwfunctions based on the Majorana pairs to be optimized
-
-    pair_indices = majorana_pair_indices[pair].copy()
-    pair_indices.append(list(set(range(3)) - set(pair_indices))[0])
-    shuffle = pair_indices + [-3, -2, -1]
-    desired_order = np.array(list(range(2, 5)) + list(range(2)) + [5])[shuffle]
-
-    reference_wave_functions = mlwf[desired_order]
-
-    return majorana_loss(
-        numerical_hamiltonian, reference_wave_functions, energy_scale, kwant_system
-    )
-
-
-def hamiltonian(
-    kwant_system,
-    linear_coefficients: dict,
-    params_fn: callable,
-    **params,
-):
-    summed_ham = sum(
-        [
-            linear_coefficients[key] * params[key]
-            for key, value in linear_coefficients.items()
-        ]
-    )
-
-    base_ham = kwant_system.hamiltonian_submatrix(
-        sparse=True, params=params_fn(**params)
-    )
-
-    return base_ham + summed_ham
-
-
 def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_system):
     """Compute the quality of Majorana coupling in a Kwant system.
 
@@ -762,39 +608,62 @@ def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_
 
     #     plt.close()
 
-    transformed_hamiltonian = (
-        svd_transformation(energies, wave_functions, reference_wave_functions) / scale
+    transformed_hamiltonian = svd_transformation(
+        energies, wave_functions, reference_wave_functions
     )
 
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:])
 
-    # print(desired , undesired)
-
     return -desired + np.log(undesired / desired + 1e-3)
 
 
-def optimize_phase_fn(voltages, pairs, kwant_params, no_eigenvalues = 10):
+# --------- Cost function for optimizing phase between different nanowires-------
+
+
+def optimize_phase(voltages, pairs, kwant_params, no_eigenvalues=10):
     optimal_phases = {}
     for voltage, pair in zip(voltages, pairs):
         args = [pair, voltage, no_eigenvalues]
         args = args + list(kwant_params.values())
 
-        sol = minimize_scalar(phase_loss, args=tuple(args), bounds=(0, 2), 
-                              method='bounded')
+        sol = minimize_scalar(
+            phase_loss, args=tuple(args), bounds=(0, 2), method="bounded"
+        )
 
         optimal_phases[pair] = phase_pairs(pair, sol.x * np.pi)
 
     return optimal_phases
 
 
-def optimize_gate_fn(
-    pairs, initial_condition, optimal_phases, optimizer_args, energy_scale
+def phase_loss(phi, *argv):
+
+    pair = argv[0]
+    phase = phase_pairs(pair, phi * np.pi)
+
+    energies = phase_dependent_energies(*argv[1:], phase=phase)
+
+    no_eigenvalues = argv[2]
+    first_excited_state_index = 2
+    kwant_params = argv[-2]
+    scale = kwant_params["Delta"]
+
+    return (
+        -1 * energies[no_eigenvalues // 2 + first_excited_state_index] / scale
+    )  # energy of the first excited state
+
+
+def phase_dependent_energies(
+    *argv,
+    phase={"phi1": np.pi, "phi2": 0.0},
 ):
-    return optimize_gate(
-        pairs,
-        list(initial_condition.values()),
-        list(optimal_phases.values()),
-        optimizer_args=optimizer_args,
-        scale=energy_scale,
-    )
+
+    voltage, n_eval, kwant_sys, kwant_params_fn, gparams, linear_terms = argv
+
+    gparams.update(phase)
+
+    params = {**gparams, **linear_terms}
+
+    numerical_hamiltonian = hamiltonian(kwant_sys, voltage, kwant_params_fn, **params)
+
+    return eigsh(numerical_hamiltonian, n_eval)

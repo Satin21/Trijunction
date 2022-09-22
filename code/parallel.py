@@ -11,11 +11,10 @@ import kwant
 import sys, os
 
 
-from optimization import Optimize, hamiltonian, optimize_phase_fn, optimize_gate_fn
+from optimization import Optimize, optimize_phase, optimize_voltage
 import parameters
 from constants import scale, majorana_pair_indices
-from utils import voltage_dict, eigsh, svd_transformation
-
+from utils import voltage_dict, eigsh, svd_transformation, hamiltonian
 
 
 # options = cluster_options()
@@ -29,27 +28,37 @@ from utils import voltage_dict, eigsh, svd_transformation
 
 def parameter_tuning(newconfig):
 
-
-    with open("/home/srangaswamykup/trijunction_design/code/config.json", "r") as outfile:
+    with open(
+        "/home/srangaswamykup/trijunction_design/code/config.json", "r"
+    ) as outfile:
         config = json.load(outfile)
 
     optimize = Optimize(
         config, poisson_system=[], linear_problem=[], boundaries=[], scale=scale
     )
 
-    thickness, gap = newconfig
+    print("hello")
+
+    dthickness, width, length, angle = newconfig
+
+    print("hello")
 
     change_config = [
-        {"device": {"thickness": {"dielectric": thickness}}},
-        {"gate": {"channel_width": gap}},
+        {"device": {"thickness": {"dielectric": dthickness}}},
+        {"gate": {"L": length, "channel_width": width, "angle": angle, "gap": 2}},
     ]
-    
+
     try:
-        _, boundaries, poisson_system, linear_problem = optimize.changeconfig(change_config)
-        return 'Success'
-    
+        _, boundaries, poisson_system, linear_problem = optimize.changeconfig(
+            change_config
+        )
+        symmetry = "Pass"
+
     except AssertionError:
-        return 'ERROR'
+        symmetry = "Failed"
+        pass
+
+    return symmetry
 
     pairs = ["right-top", "left-top", "left-right"]
     voltages = OrderedDict()
@@ -86,7 +95,6 @@ def parameter_tuning(newconfig):
     kwant_params["general_params"].update(potential=zero_potential)
 
     intermediate_couplings = []
-    
 
     iteration = 0
     tol = 1e-1
@@ -140,7 +148,7 @@ def parameter_tuning(newconfig):
 
         iteration += 1
 
-    return intermediate_couplings, voltages, optimal_phases
+    return symmetry, intermediate_couplings, voltages, optimal_phases
 
 
 # if __name__ == "__main__":

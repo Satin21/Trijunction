@@ -4,14 +4,20 @@ from shapely.ops import split
 from itertools import product
 from collections import OrderedDict
 
-def gate_coords(grid_spacing, L=41, gap=4, channel_width=11, angle=np.pi / 4):
+
+def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
     """Find the gate coordinates that defines the trijunction
 
     L: Channel length
-    gap: Gap between the gates
+    gap: Gap between gates
+    channel_width: width of the channel
     angle: Angle the channel makes with the x-axis [in radians]
 
-    Returns: Gates vertices and their order
+    Returns:
+    Gates vertices and their names
+    boundary: coordinates of the four corners of the system envelope
+    channel centers: Coordinates of the 2DEG at which nanowires can be connected
+
     """
 
     A = lambda x: np.array([[-np.cos(x), np.sin(x)], [np.sin(x), np.cos(x)]])
@@ -33,24 +39,33 @@ def gate_coords(grid_spacing, L=41, gap=4, channel_width=11, angle=np.pi / 4):
         x = np.array(x.coords)
         x[:, 0] += adjustment
         return x
-    
-    distance_to_axis = (channel_width/2 + gap/2)
-    
-    lcoords = shift(left, -distance_to_axis)
-    rcoords = shift(right, distance_to_axis)
-    tcoords = shift(top, -channel_width/2)
-    tcoords_p = shift(top, channel_width/2)
 
-    lr = np.vstack((right.coords, left.coords[::-1]))
-    lr[:, 1] -= channel_width/2
-    lr[0, 0] -= distance_to_axis
-    lr[-1, 0] += distance_to_axis
-    truncate = lr[lr[:, 1] < 0.0].copy()
-    truncate = truncate @ np.array([[1, 0], [0, 0]])
-    lr[lr[:, 1] < 0.0] = truncate
+    distance_to_axis = channel_width / 2
+
+    lcoords = shift(left, -distance_to_axis)
+    lcoords_p = shift(left, distance_to_axis)
+    rcoords = shift(right, distance_to_axis)
+    rcoords_p = shift(right, -distance_to_axis)
+    tcoords = shift(top, -channel_width / 2)
+    tcoords_p = shift(top, channel_width / 2)
+
+    intersection = list(
+        LineString(lcoords_p).intersection(LineString(rcoords_p)).coords
+    )
+
+    lcoords_p[1] = intersection[0]
+    rcoords_p[1] = intersection[0]
 
     coords = np.vstack(
-        (lcoords, tcoords, tcoords_p[::-1], rcoords[::-1], lr, lcoords[0])
+        (
+            lcoords,
+            tcoords,
+            tcoords_p[::-1],
+            rcoords[::-1],
+            rcoords_p,
+            lcoords_p[::-1],
+            lcoords[0],
+        )
     )
     trijunction = Polygon(coords)
 
@@ -64,7 +79,6 @@ def gate_coords(grid_spacing, L=41, gap=4, channel_width=11, angle=np.pi / 4):
     rectangle = np.array([[xmin, ymin], [xmin, ymax], [xmax, ymax], [xmax, ymin]])
 
     gates = Polygon(rectangle).difference(trijunction)
-    
 
     gates = np.array(gates.geoms)
     area = [gate.area for gate in gates]
@@ -73,7 +87,7 @@ def gate_coords(grid_spacing, L=41, gap=4, channel_width=11, angle=np.pi / 4):
     coords = np.array(gates[1].exterior.coords)
     y = np.unique(coords[:, 1])
     assert len(y) == 3
-    bottom_top_threshold = y[1]
+    bottom_top_threshold = y[1] + gap / 2
 
     splitter = LineString(
         [
@@ -82,10 +96,10 @@ def gate_coords(grid_spacing, L=41, gap=4, channel_width=11, angle=np.pi / 4):
         ]
     )
 
-    top, bottom = list(gates[1].difference(splitter.buffer(gap/2)).geoms)
+    top, bottom = list(gates[1].difference(splitter.buffer(gap / 2)).geoms)
 
-    left_1 = np.round(bottom.exterior.coords)
-    top_1 = np.round(top.exterior.coords)
+    left_1 = np.round(np.array(bottom.exterior.coords))
+    top_1 = np.round(np.array(top.exterior.coords))
     top_2 = top_1.copy() @ [[-1, 0], [0, 1]]
     right_2 = left_1.copy() @ [[-1, 0], [0, 1]]
 
@@ -95,27 +109,28 @@ def gate_coords(grid_spacing, L=41, gap=4, channel_width=11, angle=np.pi / 4):
         [Point(point) for point in product([0.0], np.unique(coords[:, 1]))]
     )
 
-    left_2, _ = list(gates[0].difference(splitter.buffer(gap/2)).geoms)
-    
-    left_2 = np.round(left_2.exterior.coords)
-    right_1 = left_2.copy() @ [[-1, 0], [0, 1]]
-    
-    gates_vertex = [
-        left_1, left_2, 
-        right_1, right_2, 
-        top_1, top_2
-    ]
+    left_2, _ = list(gates[0].difference(splitter.buffer(gap / 2)).geoms)
 
-    
+    left_2 = np.round(np.array(left_2.exterior.coords))
+    right_1 = left_2.copy() @ [[-1, 0], [0, 1]]
+
+    gates_vertex = [left_1, left_2, right_1, right_2, top_1, top_2]
+
     gate_names = ["left_1", "left_2", "right_1", "right_2", "top_1", "top_2"]
     assert min(left_1[:, 0]) == min(top_1[:, 0])
     assert max(right_2[:, 0]) == max(top_2[:, 0])
-    
-    boundaries = OrderedDict(xmin = min(left_1[:, 0]), xmax = max(right_2[:, 0]),
-                             ymin = min(left_1[:, 1]), ymax = max(top_1[:, 1]))
-            
-    channel_center = OrderedDict(left = np.hstack(tail), 
-                          right = np.hstack(tail*-1), 
-                          top = np.hstack([0, L+head[1]]))
-    
-    return gates_vertex, gate_names, boundaries, channel_center 
+
+    boundaries = OrderedDict(
+        xmin=min(left_1[:, 0]),
+        xmax=max(right_2[:, 0]),
+        ymin=min(left_1[:, 1]),
+        ymax=max(top_1[:, 1]),
+    )
+
+    channel_center = OrderedDict(
+        left=np.hstack(tail),
+        right=np.hstack(tail * -1),
+        top=np.hstack([0, L + head[1]]),
+    )
+
+    return gates_vertex, gate_names, boundaries, channel_center

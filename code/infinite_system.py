@@ -1,4 +1,3 @@
-import tools as tl
 import numpy as np
 import kwant
 import kwant.continuum
