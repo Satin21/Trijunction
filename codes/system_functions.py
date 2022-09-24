@@ -4,8 +4,7 @@ from codes.utils import eigsh
 from toolz.functoolz import memoize
 
 
-@memoize
-def base_ham(parameters: Dict, trijunction, f_params):
+def base_ham(trijunction, f_params, parameters):
     """
     Calculate the Hamiltonian of a trijunction using a given set
     of parameters and a position dependent function.
@@ -19,10 +18,12 @@ def base_ham(parameters: Dict, trijunction, f_params):
 
     return ham
 
+
 def adaptive_two_parameters(
     xy,
     voltages,
-    gates
+    gates,
+    params
 ):
     """
     Energy of the first non-zero eigenvalue.
@@ -31,7 +32,7 @@ def adaptive_two_parameters(
     
     kwant_params = make_system()
 
-    for gate in enumerate(gates):
+    for i, gate in enumerate(gates):
         if gate in ['left', 'right', 'top']:
             voltages[gate+'_1'] = xy[i]
             voltages[gate+'_2'] = xy[i]            
@@ -39,9 +40,10 @@ def adaptive_two_parameters(
             voltages[gate] = xy[i]
 
     evals = diagonalisation(
-        new_param,
-        kwant_params,
-        voltages,
+        kwant_params=kwant_params[1:],
+        voltages=voltages,
+        params=params,
+        new_param={},
         nevals=6
     )
     
@@ -49,12 +51,12 @@ def adaptive_two_parameters(
 
 
 def diagonalisation(
-    new_param, kwant_params, voltages, nevals=20
+    new_param, kwant_params, voltages, params, nevals=20
 ):
     """
     
     """
-    trijunction, f_params, params, linear_terms = kwant_params
+    trijunction, f_params, linear_terms = kwant_params
     params.update(new_param)
 
     linear_ham = sum(

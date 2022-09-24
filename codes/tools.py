@@ -1,40 +1,11 @@
 import sys, os
-
-#sys.path.append('/home/tinkerer/spin-qubit/code/')
-
 import numpy as np
 import tinyarray as ta
 from tqdm import tqdm
-from .parameters import bands, junction_parameters
+from codes.parameters import junction_parameters
 
 sys.path.append(os.path.realpath('./../spin-qubit/'))
 from potential import gate_potential
-# https://stackoverflow.com/a/3233356
-import collections.abc
-
-
-def find_resonances(energies, n, i=1, sign=1, **kwargs):
-    """
-    Extract peaks from np.abs(lowest) mode in energies.
-    By choosing 'sign' we extract either peaks or dips.
-    Parameters:
-    -----------
-    """
-    levels = energies.T
-    ground_state = levels[n // 2 + i]
-    peaks, properties = find_peaks(sign * np.abs(ground_state), **kwargs)
-
-    return ground_state, peaks
-
-
-
-def dict_update(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
-            d[k] = dict_update(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
 
 
 def get_potential(potential):
@@ -80,8 +51,7 @@ def linear_Hamiltonian(
     )
 
     # base hamiltonian
-    mu = bands[0]
-    kwant_params = junction_parameters(m_nw=[mu, mu, mu])
+    kwant_params = junction_parameters()
     kwant_params.update(potential=zero_potential)
 
     base_ham = kwant_system.hamiltonian_submatrix(

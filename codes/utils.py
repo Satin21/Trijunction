@@ -1,36 +1,15 @@
+import sys, os
 import numpy as np
-from .constants import voltage_keys, scale
+from codes.constants import voltage_keys, scale
 from scipy.linalg import svd
 import scipy.sparse.linalg as sla
 from shapely.geometry.polygon import Polygon
 import kwant
 import kwant.linalg.mumps as mumps
-import sys, os
 from scipy.sparse import identity
-
 sys.path.append(os.path.realpath('./../spin-qubit/'))
-
-#sys.path.append("/home/srangaswamykup/trijunction_design/spin-qubit/")
-
 from utility import wannier_basis
 
-
-def voltage_dict(x, dirichlet=False):
-    """Return dictionary of gate voltages
-    x: list
-    voltages
-
-    dirichlet: bool
-    Whether to add dirichlet gates
-    """
-
-    voltages = {key: x[index] for key, index in voltage_keys.items()}
-
-    if dirichlet:
-        for i in range(6):
-            voltages["dirichlet_" + str(i)] = 0.0
-
-    return voltages
 
 
 class LuInv(sla.LinearOperator):
@@ -118,7 +97,10 @@ def wannierize(tightbindingsystem, eigenstates):
 
 
 def svd_transformation(energies, wave_functions, reference_wave_functions):
-    """SVD unitary tranformation of the coupled Hamiltonian in the Wannierized Majorana basis"""
+    """
+    SVD unitary tranformation of the coupled Hamiltonian
+    in the Wannierized Majorana basis
+    """
     S = wave_functions.T @ reference_wave_functions.T.conj()
     # Unitarize the overlap matrix
     U, _, Vh = svd(S)
@@ -127,7 +109,9 @@ def svd_transformation(energies, wave_functions, reference_wave_functions):
 
 
 def _closest_node(node, nodes):
-    """Euclidean distance between a node and array of nodes"""
+    """
+    Euclidean distance between a node and array of nodes
+    """
     nodes = np.asarray(nodes)
     dist = np.sum((nodes - node) ** 2, axis=1)
     return np.argmin(dist)
@@ -136,8 +120,8 @@ def _closest_node(node, nodes):
 def dep_acc_regions(
     poisson_system, site_indices: np.ndarray, kwant_geometry: dict, pair: str
 ):
-
-    """Return indices from the poisson system grid corresponding to regions that
+    """
+    Return indices from the poisson system grid corresponding to regions that
     needs to de depleted according to the desired majorana pair
     """
 

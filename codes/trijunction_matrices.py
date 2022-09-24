@@ -1,28 +1,23 @@
 import sys, os
 import numpy as np
-import matplotlib.pyplot as plt
 import tinyarray as ta
-import kwant
 import json
-from functools import lru_cache
+from toolz.functoolz import memoize
 
 import codes.finite_system
 import codes.parameters
-from codes.tools import linear_Hamiltonian, hamiltonian
-from codes.utils import eigsh, voltage_dict
+from codes.tools import linear_Hamiltonian
 from codes.discretize import discretize_heterostructure
 from codes.gate_design import gate_coords
-from codes.optimization import phase_loss
 
 sys.path.append(os.path.realpath('./../spin-qubit/'))
 from Hamiltonian import discrete_system_coordinates
 from potential import linear_problem_instance
 
 
-
-@lru_cache
+@memoize
 def make_system():
-    
+
     with open('/home/tinkerer/trijunction-design/codes/config.json', 'r') as f:
         config = json.load(f)
 
@@ -71,6 +66,5 @@ def make_system():
             np.zeros(len(site_coords)),
         )
     )
-    
-    return zero_potential, linear_terms, trijunction, f_params
-    
+
+    return zero_potential, trijunction, f_params, linear_terms

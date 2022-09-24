@@ -1,6 +1,8 @@
+import numpy as np
 from scipy.constants import electron_mass, hbar
 from collections.abc import Mapping
 from codes.constants import bands, voltage_keys
+from collections import OrderedDict
 
 
 def voltage_dict(x, dirichlet=False):
@@ -21,7 +23,7 @@ def voltage_dict(x, dirichlet=False):
     return voltages
 
 
-def pair_voltages(initial =(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5):
+def pair_voltages(initial=(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5e-3):
     """
     
     """
@@ -30,9 +32,10 @@ def pair_voltages(initial =(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5):
     initial_condition = OrderedDict()
 
     for i, pair in enumerate(pairs):
-        initial[i] = depleted
-        voltages[pair] = voltage_dict(initial, True)
-        initial_condition[pair] = initial.copy()
+        initial_copy = np.array(np.copy(initial))
+        initial_copy[i] = depleted
+        voltages[pair] = voltage_dict(initial_copy, True)
+        initial_condition[pair] = initial_copy
 
     return voltages
 
