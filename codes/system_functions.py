@@ -40,7 +40,7 @@ def adaptive_two_parameters(
             voltages[gate] = xy[i]
 
     evals = diagonalisation(
-        kwant_params=kwant_params[1:],
+        kwant_params=kwant_params,
         voltages=voltages,
         params=params,
         new_param={},
@@ -54,7 +54,7 @@ def diagonalisation(
     new_param, kwant_params, voltages, params, nevals=20
 ):
     """
-    
+
     """
     trijunction, f_params, linear_terms = kwant_params
     params.update(new_param)
