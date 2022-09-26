@@ -23,14 +23,14 @@ def adaptive_two_parameters(
     xy,
     voltages,
     gates,
-    params
+    params,
+    kwant_params
 ):
     """
     Energy of the first non-zero eigenvalue.
     `gates` can be 'left', 'right', 'top', 'accum'.
     """
     
-    kwant_params = make_system()
 
     for i, gate in enumerate(gates):
         if gate in ['left', 'right', 'top']:
