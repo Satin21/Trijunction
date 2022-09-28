@@ -399,8 +399,6 @@ def optimize_voltage(
         optimizer_args["accumulation"] = accumulation
         optimizer_args["energy_scale"] = scale
 
-        print(f"Optimizing pair {pair}")
-
         # print(approx_fprime(initial,
         #               voltage_loss,
         # 1e-8,
@@ -425,97 +423,14 @@ def optimize_voltage(
     return optimal_voltages
 
 
-def voltage_loss(x, *argv):
-    # Unpack argv
-    voltages = {key: x[index] for key, index in voltage_keys.items()}
 
-    # Boundary conditions on system sides.
-    for i in range(6):
-        voltages["dirichlet_" + str(i)] = 0.0
+def potential_shape(potential, dep_points, acc_points):
 
-    poisson_system, poisson_params = argv[:2]
-    kwant_system, kwant_params_fn, geometry = argv[2:5]
-    linear_terms = argv[5]
-    mlwf = argv[6]
-    optimal_phase = argv[8]
-    pair = argv[9]
-    dep_points, acc_points = argv[10:12]
-    energy_scale = argv[-1]
-
-    mu = parameters.bands[0]
-    params = parameters.junction_parameters(m_nw=[mu, mu, mu])
-
-    potential, potential_loss = potential_shape_loss(
-        x, poisson_system, poisson_params, mu, dep_points, acc_points
-    )
-    if potential_loss:
-        print(potential_loss)
-        return potential_loss + energy_scale
-
-    potential = dict(
-        zip(
-            ta.array(poisson_params["site_coords"][:, [0, 1]]),
-            np.zeros(len(poisson_params["site_coords"])),
-        )
-    )
-    params.update(potential=potential)
-
-    params.update(optimal_phase)
-
-    kwant_params = {**params, **linear_terms}
-
-    numerical_hamiltonian = hamiltonian(
-        kwant_system, voltages, kwant_params_fn, **kwant_params
-    )
-
-    # shuffle the wavwfunctions based on the Majorana pairs to be optimized
-
-    pair_indices = majorana_pair_indices[pair].copy()
-    pair_indices.append(list(set(range(3)) - set(pair_indices))[0])
-    shuffle = pair_indices + [-3, -2, -1]
-    desired_order = np.array(list(range(2, 5)) + list(range(2)) + [5])[shuffle]
-
-    reference_wave_functions = mlwf[desired_order]
-
-    return majorana_loss(
-        numerical_hamiltonian, reference_wave_functions, energy_scale, kwant_system
-    )
-
-
-def potential_shape_loss(x, *argv):
-
-    if len(x) == 4:
-        voltages = {key: x[index] for key, index in voltage_keys.items()}
-
-    elif len(x) == 2:
-        voltages = {}
-
-        for arm in ["left", "right", "top"]:
-            for i in range(2):
-                voltages["arm_" + str(i)] = x[0]
-
-        voltages["global_accumul"] = x[-1]
-
-    for i in range(6):
-        voltages["dirichlet_" + str(i)] = 0.0
-
-    poisson_system, poisson_params, mus_nw, dep_points, acc_points = argv
-
-    charges = {}
-    potential = gate_potential(
-        poisson_system,
-        poisson_params["linear_problem"],
-        poisson_params["site_coords"][:, [0, 1]],
-        poisson_params["site_indices"],
-        voltages,
-        charges,
-        offset=poisson_params["offset"],
-    )
-
-    # potential.update((x, y * -1) for x, y in potential.items())
 
     potential_array = np.array(list(potential.values()))
     potential_keys = np.array(list(potential.keys()))
+    
+    chemical_potential = constants.bands[0]
 
     loss = []
 
@@ -527,13 +442,13 @@ def potential_shape_loss(x, *argv):
             sum([dep_points[gate + "_" + str(i)] for i in range(1, 3)], [])
         ]
 
-        if np.any(dgate < mus_nw):
+        if np.any(dgate < chemical_potential):
             # Gated regions not depleted
-            loss.append(_depletion_relative_potential(dgate, mus_nw))
+            loss.append(_depletion_relative_potential(dgate, chemical_potential))
 
-        if channel > mus_nw:
+        if channel > chemical_potential:
             # Channel is depleted relative to nw
-            loss.append(np.abs(channel - mus_nw))
+            loss.append(np.abs(channel - chemical_potential))
 
         if np.any(channel > dgate):
             # Channel is depleted relative to gated regions
@@ -544,27 +459,27 @@ def potential_shape_loss(x, *argv):
             sum([dep_points[gate + "_" + str(i)] for i in range(1, 3)], [])
         ]
 
-        if np.any(dgate < mus_nw):
+        if np.any(dgate < chemical_potential):
             # Gated regions not depleted relative to nw
-            loss.append(_depletion_relative_potential(dgate, mus_nw))
+            loss.append(_depletion_relative_potential(dgate, chemical_potential))
 
         channel = potential_array[tuple(np.hstack(dep_points[gate]))]
 
-        if np.any(channel < mus_nw):
+        if np.any(channel < chemical_potential):
             # Channel is not depleted relative to nw
-            loss.append(np.abs(mus_nw - channel))
+            loss.append(np.abs(chemical_potential - channel))
 
     if len(loss):
-        return potential, sum(np.hstack(loss))
+        return sum(np.hstack(loss))
 
-    return potential, 0
+    return 0
 
 
 def _depletion_relative_potential(potential, reference):
     return np.abs(potential[np.where(potential < reference)] - reference)
 
 
-def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_system):
+def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale):
     """Compute the quality of Majorana coupling in a Kwant system.
 
     Parameters
@@ -587,27 +502,6 @@ def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_
         return_eigenvectors=True,
     )
 
-    #     fig, ax = plt.subplots(1, len(wave_functions.T), figsize = (10, 5), sharey= True)
-
-    #     density = kwant.operator.Density(kwant_system, np.eye(4))
-    #     for i, vec in enumerate(wave_functions.T):
-    #         kwant.plotter.density(kwant_system, density(vec), ax = ax[i]);
-
-    #     filepath = '/home/tinkerer/trijunction-design/data/optimization/'
-    #     seed = gather_data(filepath)
-
-    #     if ".ipynb_checkpoints" in seed:
-    #         os.system("rm -rf .ipynb_checkpoints")
-
-    #     if len(seed):
-    #         file_name = filepath + "plt_" + str(max(seed) + 1) + "_.png"
-    #     else:
-    #         file_name = filepath + "plt_" + str(0) + "_.png"
-
-    #     plt.savefig(file_name, format="png", bbox_inches="tight", pad_inches=0.0)
-
-    #     plt.close()
-
     transformed_hamiltonian = svd_transformation(
         energies, wave_functions, reference_wave_functions
     )
@@ -620,50 +514,53 @@ def majorana_loss(numerical_hamiltonian, reference_wave_functions, scale, kwant_
 
 # --------- Cost function for optimizing phase between different nanowires-------
 
+def loss(x, *argv):
+    
+    """
+    x: either list or scalar (float)
+        list when optimizing voltages and float when optimizing phases
+    
+    """
+    
+    ## 
+    params = argv[0]
+    kwant_system, kwant_params_fn = argv[2:5]
+    linear_terms = argv[5]
+    mlwf = argv[6]
+    pair = argv[9]
+    dep_points, acc_points = argv[10:12]
+    energy_scale = argv[-1]
+    
+    if isinstance(x, list):
+        # Unpack argv
+        new_parameter = voltage_dict(x)
+    elif isinstance(x, float):
+        new_parameter = phase_pairs(pair, x * np.pi)
+        
+    ##TODO
+    potential = return_potential()
 
-def optimize_phase(voltages, pairs, kwant_params, no_eigenvalues=10):
-    optimal_phases = {}
-    for voltage, pair in zip(voltages, pairs):
-        args = [pair, voltage, no_eigenvalues]
-        args = args + list(kwant_params.values())
+    potential_loss = potential_shape_loss(
+        potential, dep_points, acc_points
+    )
+    if potential_loss:
+        return potential_loss + energy_scale
 
-        sol = minimize_scalar(
-            phase_loss, args=tuple(args), bounds=(0, 2), method="bounded"
-        )
+    params.update(new_parameter)
 
-        optimal_phases[pair] = phase_pairs(pair, sol.x * np.pi)
+    numerical_hamiltonian = hamiltonian(
+        kwant_system, linear_terms, kwant_params_fn, **params
+    )
 
-    return optimal_phases
+    # shuffle the wavwfunctions based on the Majorana pairs to be optimized
 
+    pair_indices = majorana_pair_indices[pair].copy()
+    pair_indices.append(list(set(range(3)) - set(pair_indices))[0])
+    shuffle = pair_indices + [-3, -2, -1]
+    desired_order = np.array(list(range(2, 5)) + list(range(2)) + [5])[shuffle]
 
-def phase_loss(phi, *argv):
+    reference_wave_functions = mlwf[desired_order]
 
-    pair = argv[0]
-    phase = phase_pairs(pair, phi * np.pi)
-
-    energies = phase_dependent_energies(*argv[1:], phase=phase)
-
-    no_eigenvalues = argv[2]
-    first_excited_state_index = 2
-    kwant_params = argv[-2]
-    scale = kwant_params["Delta"]
-
-    return (
-        -1 * energies[no_eigenvalues // 2 + first_excited_state_index] / scale
-    )  # energy of the first excited state
-
-
-def phase_dependent_energies(
-    *argv,
-    phase={"phi1": np.pi, "phi2": 0.0},
-):
-
-    voltage, n_eval, kwant_sys, kwant_params_fn, gparams, linear_terms = argv
-
-    gparams.update(phase)
-
-    params = {**gparams, **linear_terms}
-
-    numerical_hamiltonian = hamiltonian(kwant_sys, voltage, kwant_params_fn, **params)
-
-    return eigsh(numerical_hamiltonian, n_eval)
+    return majorana_loss(
+        numerical_hamiltonian, reference_wave_functions, energy_scale, kwant_system
+    )
