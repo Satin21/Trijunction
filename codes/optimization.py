@@ -6,10 +6,10 @@ import kwant
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 
-from tools import hamiltonian
-from constants import scale, majorana_pair_indices, voltage_keys, bands
-from parameters import junction_parameters, dict_update, phase_pairs, voltage_dict
-from utils import wannierize, svd_transformation, eigsh
+from codes.tools import hamiltonian
+from codes.constants import scale, majorana_pair_indices, voltage_keys, bands
+from codes.parameters import junction_parameters, dict_update, phase_pairs, voltage_dict
+from codes.utils import wannierize, svd_transformation, eigsh
 
 from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates

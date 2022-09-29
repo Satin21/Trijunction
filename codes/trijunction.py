@@ -1,12 +1,12 @@
 import kwant
 import numpy as np
-from constants import scale, voltage_keys
-from tools import linear_Hamiltonian
-from utils import eigsh, wannierize
-from parameters import voltage_dict
-from gate_design import gate_coords
-from finite_system import kwantsystem
-from discretize import discretize_heterostructure
+from codes.constants import scale, voltage_keys
+from codes.tools import linear_Hamiltonian
+from codes.utils import eigsh, wannierize
+from codes.parameters import voltage_dict
+from codes.gate_design import gate_coords
+from codes.finite_system import kwantsystem
+from codes.discretize import discretize_heterostructure
 import sys
 import tinyarray as ta
 from collections import OrderedDict
@@ -62,7 +62,7 @@ class Trijunction:
         self.linear_problem = linear_problem_instance(self.poisson_system)
 
         self.site_coords, self.site_indices = discrete_system_coordinates(
-            self.poisson_system, [("charge", "twoDEG")], boundaries=None
+            self.poisson_system, [("mixed", "twoDEG")], boundaries=None
         )
 
         self.grid_points = self.poisson_system.grid.points

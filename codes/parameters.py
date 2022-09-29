@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.constants import electron_mass, hbar
 from collections.abc import Mapping
-from constants import bands, voltage_keys
+from codes.constants import bands, voltage_keys
 from collections import OrderedDict
 
 

@@ -2,7 +2,7 @@ import sys, os
 import numpy as np
 import tinyarray as ta
 from tqdm import tqdm
-from parameters import junction_parameters
+from codes.parameters import junction_parameters
 
 sys.path.append(os.path.realpath("/home/tinkerer/spin-qubit/"))
 from potential import gate_potential
