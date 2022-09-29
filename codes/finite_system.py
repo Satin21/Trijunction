@@ -22,7 +22,6 @@ def finite_system(**geometry):
 
     Parameters:
     -----------
-        shape: function that defines the potential in the cavity.
         geometry: dictionary containing overall system geometry.
 
     Returns:
@@ -68,15 +67,6 @@ def finite_system(**geometry):
             return f(x, y)
 
         return system
-
-    # def side_geometry(potential, pair, offset):
-    #
-    #       def f(x, y):
-    #          if pair=='LR' or (pair=='LC' and x<offset) or (pair=='CR' and x>-offset):
-    #             return potential(x, y)
-    #        else:
-    #           return -2
-    #  return f
 
     def f_params(**params):
 
@@ -164,3 +154,52 @@ def get_potential(potential):
         return potential[ta.array(np.round(np.array([x, y]) / scale, rounding_limit))]
 
     return f
+<<<<<<< HEAD:codes/finite_system.py
+
+
+def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
+    """
+    Create kwant system describing a trijunction
+    Parameters
+    ----------
+    config: ?
+    boundaries: ?
+    nw_centers: ?
+    scale: ?
+
+    Returns
+    -------
+    geometry: dictionary with geometrical parameters
+    trijunction: kwant builder
+    f_params: position dependent function
+    """
+
+    a = scale
+    l = config["kwant"]["nwl"]
+    w = config["kwant"]["nww"]
+
+    nw_centers["top"][1] += l
+
+    geometry = {
+        "nw_l": l * a,
+        "nw_w": w * a,
+        "s_w": (boundaries["xmax"] - boundaries["xmin"]) * a,
+        "s_l": (boundaries["ymax"] - boundaries["ymin"]) * a,
+        "centers": [
+            nw_centers["left"] * a,
+            nw_centers["right"] * a,
+            nw_centers["top"] * a,
+        ],
+    }
+
+    ## Discretized Kwant system
+
+    trijunction, f_params = finite_system(**geometry)
+    trijunction = trijunction.finalized()
+
+    trijunction = trijunction
+    f_params = f_params
+
+    return geometry, trijunction, f_params
+=======
+>>>>>>> master:code/finite_system.py

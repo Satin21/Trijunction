@@ -1,3 +1,4 @@
+import sys, os
 import numpy as np
 from constants import voltage_keys, scale
 from scipy.linalg import svd
@@ -6,7 +7,6 @@ from shapely.geometry.polygon import Polygon
 from alphashape import alphashape
 import kwant
 import kwant.linalg.mumps as mumps
-import sys, os
 from scipy.sparse import identity
 import collections.abc
 import tinyarray as ta
@@ -14,6 +14,12 @@ import parameters
 from tqdm import tqdm
 
 
+<<<<<<< HEAD:codes/utils.py
+sys.path.append(os.path.realpath("./../spin-qubit/"))
+from utility import wannier_basis
+
+
+=======
 # sys.path.append(os.path.realpath('./../spin-qubit/'))
 from potential import gate_potential
 
@@ -50,6 +56,7 @@ def dict_update(d, u):
     return d
 
 
+>>>>>>> master:code/utils.py
 class LuInv(sla.LinearOperator):
     def __init__(self, A):
         inst = mumps.MUMPSContext()
@@ -214,7 +221,10 @@ def wannierize(tightbindingsystem, eigenstates):
 
 
 def svd_transformation(energies, wave_functions, reference_wave_functions):
-    """SVD unitary tranformation of the coupled Hamiltonian in the Wannierized Majorana basis"""
+    """
+    SVD unitary tranformation of the coupled Hamiltonian
+    in the Wannierized Majorana basis
+    """
     S = wave_functions.T @ reference_wave_functions.T.conj()
     # Unitarize the overlap matrix
     U, _, Vh = svd(S)
@@ -223,7 +233,9 @@ def svd_transformation(energies, wave_functions, reference_wave_functions):
 
 
 def _closest_node(node, nodes):
-    """Euclidean distance between a node and array of nodes"""
+    """
+    Euclidean distance between a node and array of nodes
+    """
     nodes = np.asarray(nodes)
     dist = np.sum((nodes - node) ** 2, axis=1)
     return np.argmin(dist)
@@ -306,8 +318,8 @@ def phase_spectrum(
 def dep_acc_regions(
     poisson_system, site_indices: np.ndarray, nw_centers: dict, pair: str
 ):
-
-    """Return indices from the poisson system grid corresponding to regions that
+    """
+    Return indices from the poisson system grid corresponding to regions that
     needs to de depleted according to the desired majorana pair
     """
 

@@ -1,9 +1,13 @@
 import numpy as np
 import sys, os
 
+<<<<<<< HEAD:codes/discretize.py
+sys.path.append("/home/tinkerer/spin-qubit/")
+=======
 sys.path.append(os.path.realpath("./../spin-qubit/"))
 
 sys.path.append("/home/srangaswamykup/trijunction_design/spin-qubit/")
+>>>>>>> master:code/discretize.py
 
 from layout import (
     Layout,
@@ -14,7 +18,25 @@ from layout import (
 )
 
 
+def check_grid(A, B):
+    if A % B:
+        return A % B
+    return B
+
+
 def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
+    """
+    Parameters
+    ----------
+    config: dictionary
+    boundaries: dictionary
+    gate_vertices: ?
+    gate_names: np.ndarray ?
+
+    Returns
+    -------
+    Poisson system
+    """
 
     device_config = config["device"]
     grid_spacing = device_config["grid_spacing"]

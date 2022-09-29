@@ -14,11 +14,13 @@ voltage_keys = {
     "global_accumul": 3,
 }
 
-
-def phase_pairs(pair, phi):
-    if pair == "right-top":
-        return {"phi2": phi, "phi1": 0}
-    if pair == "left-top":
-        return {"phi2": phi, "phi1": 0}
-    if pair == "left-right":
-        return {"phi1": phi, "phi2": 0}
+# Bottom of each transverse band
+bands = [
+    0.0023960204649275973,
+    0.009605416498312178,
+    0.020395040147213304,
+    0.03312226901926766,
+    0.045849497891322026,
+    0.056639121540223145,
+    0.06384851757360771,
+]

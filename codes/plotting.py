@@ -1,29 +1,11 @@
+import sys
 import kwant
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
-from tools import find_cuts
 
-
-def plot_potential_at_barriers(
-    volts, potentials, mu, color_label, title="Potential cut along barriers"
-):
-    yint = 1e3 * volts
-    x, potential_cuts_bot = find_cuts(potentials, cut=10e-9)
-    potential_cuts_bot = np.array(potential_cuts_bot)
-    xs = np.array([x for i in range(len(potential_cuts_bot))])
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-    lc1 = multiline(
-        1e9 * xs, -1e3 * (potential_cuts_bot - mu), yint, cmap="viridis", lw=0.3, ax=ax
-    )
-
-    axcb = fig.colorbar(lc1)
-    axcb.set_label(color_label, fontsize=13)
-    ax.set_title(title)
-    ax.set_ylabel(r"$V-\mu_0$ [mV]")
-    ax.set_xlabel(r"x [nm]")
-    plt.show()
+sys.path.append("/home/tinkerer/spin-qubit/")
+from potential import gate_potential
 
 
 def plot_gates(gates, scale=10, address="gates.pdf", **kwargs):
@@ -265,3 +247,37 @@ def plot_potential_lines(
     cbar.set_label(r"$V_{eqipot}$ [mV]")
     ax.set_xlabel("X [nm]")
     ax.set_ylabel("Y [nm]")
+
+
+def plot_potential(
+    voltages, boundaries, poisson_system, scale=1e-8, **poisson_parameters
+):
+    """
+    Plot potential defined by voltages
+    """
+
+    linear_problem, site_coords, site_indices, offset = poisson_parameters.values()
+    charges = {}
+    clean_potential = gate_potential(
+        poisson_system,
+        linear_problem,
+        site_coords[:, [0, 1]],
+        site_indices,
+        voltages,
+        charges,
+        offset=offset,
+    )
+
+    coordinates = np.array(list(clean_potential.keys()))
+    x = coordinates[:, 0]
+    width_plot = np.unique(x).shape[0]
+    Z = np.round(
+        np.array(list(clean_potential.values())).reshape(width_plot, -1) * -1, 4
+    )
+    plt.figure()
+    plt.imshow(
+        np.rot90(Z),
+        extent=np.array(list(boundaries.values())) * scale,
+        cmap="magma_r",
+    )
+    plt.colorbar()

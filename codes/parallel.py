@@ -16,7 +16,6 @@ import parameters
 from constants import scale, majorana_pair_indices
 from utils import voltage_dict, eigsh, svd_transformation, hamiltonian
 
-
 # options = cluster_options()
 # options.worker_cores = 2
 # options.worker_memory = 10
@@ -52,6 +51,12 @@ def parameter_tuning(newconfig):
         _, boundaries, poisson_system, linear_problem = optimize.changeconfig(
             change_config
         )
+<<<<<<< HEAD:codes/parallel.py
+        return "Success"
+
+    except AssertionError:
+        return "ERROR"
+=======
         symmetry = "Pass"
 
     except AssertionError:
@@ -59,6 +64,7 @@ def parameter_tuning(newconfig):
         pass
 
     return symmetry
+>>>>>>> master:code/parallel.py
 
     pairs = ["right-top", "left-top", "left-right"]
     voltages = OrderedDict()
@@ -69,6 +75,7 @@ def parameter_tuning(newconfig):
         voltages[pair] = voltage_dict(initial, True)
         initial_condition[pair] = initial.copy()
 
+    # variable not used
     poisson_params = {
         "poisson_system": poisson_system,
         "linear_problem": linear_problem,
@@ -76,6 +83,7 @@ def parameter_tuning(newconfig):
         "site_indices": optimize.site_indices,
         "offset": optimize.offset,
     }
+
     params = parameters.junction_parameters(m_nw=parameters.bands[0] * np.ones(3))
 
     kwant_params = {

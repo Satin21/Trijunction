@@ -5,7 +5,11 @@ from itertools import product
 from collections import OrderedDict
 
 
+<<<<<<< HEAD:codes/gate_design.py
+def gate_coords(config):
+=======
 def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
+>>>>>>> master:code/gate_design.py
     """Find the gate coordinates that defines the trijunction
 
     L: Channel length
@@ -19,6 +23,11 @@ def gate_coords(L=41, gap=4, channel_width=11, angle=np.pi / 4):
     channel centers: Coordinates of the 2DEG at which nanowires can be connected
 
     """
+
+    L = config["gate"]["L"]
+    gap = config["gate"]["gap"]
+    channel_width = config["gate"]["channel_width"]
+    angle = config["gate"]["angle"]
 
     A = lambda x: np.array([[-np.cos(x), np.sin(x)], [np.sin(x), np.cos(x)]])
 
