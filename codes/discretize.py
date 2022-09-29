@@ -1,7 +1,13 @@
 import numpy as np
 import sys, os
 
+<<<<<<< HEAD:codes/discretize.py
 sys.path.append("/home/tinkerer/spin-qubit/")
+=======
+sys.path.append(os.path.realpath("./../spin-qubit/"))
+
+sys.path.append("/home/srangaswamykup/trijunction_design/spin-qubit/")
+>>>>>>> master:code/discretize.py
 
 from layout import (
     Layout,
@@ -64,7 +70,7 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     )
 
     layout.add_layer(
-        SimpleChargeLayer(
+        TwoDEGLayer(
             "twoDEG",
             thickness["twoDEG"],
             permittivity["twoDEG"],

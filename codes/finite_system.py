@@ -14,8 +14,6 @@ hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
 + Delta_im(x,y) * kron(sigma_0, sigma_y)
 + B_x * kron(sigma_y, sigma_0)"""
 
-template = kwant.continuum.discretize(hamiltonian, grid=scale)
-
 
 def finite_system(**geometry):
     """
@@ -98,6 +96,11 @@ def finite_system(**geometry):
                 return True
 
         junction = kwant.Builder()
+
+        template = kwant.continuum.discretize(
+            hamiltonian, grid=scale * geometry["grid_spacing"]
+        )
+
         junction.fill(template, shape=rectangle, start=[0, 0])
         return junction
 
@@ -106,11 +109,52 @@ def finite_system(**geometry):
     return trijunction, f_params
 
 
+def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
+
+    """
+
+    Builds a tight binding Kwant system with scattering region and nw leads
+
+
+
+    """
+
+    a = scale
+    l = config["kwant"]["nwl"]
+    w = config["kwant"]["nww"]
+
+    nw_centers["top"][1] += l
+
+    geometry = {
+        "grid_spacing": config["device"]["grid_spacing"]["twoDEG"],
+        "nw_l": l * a,
+        "nw_w": w * a,
+        "s_w": (boundaries["xmax"] - boundaries["xmin"]) * a,
+        "s_l": (boundaries["ymax"] - boundaries["ymin"]) * a,
+        "centers": [
+            nw_centers["left"] * a,
+            nw_centers["right"] * a,
+            nw_centers["top"] * a,
+        ],
+    }
+
+    ## Discretized Kwant system
+
+    trijunction, f_params = finite_system(**geometry)
+    trijunction = trijunction.finalized()
+
+    trijunction = trijunction
+    f_params = f_params
+
+    return geometry, trijunction, f_params
+
+
 def get_potential(potential):
     def f(x, y):
         return potential[ta.array(np.round(np.array([x, y]) / scale, rounding_limit))]
 
     return f
+<<<<<<< HEAD:codes/finite_system.py
 
 
 def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
@@ -157,3 +201,5 @@ def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
     f_params = f_params
 
     return geometry, trijunction, f_params
+=======
+>>>>>>> master:code/finite_system.py

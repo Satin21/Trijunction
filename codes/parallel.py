@@ -11,11 +11,10 @@ import kwant
 import sys, os
 
 
-from optimization import Optimize, hamiltonian, optimize_phase_fn, optimize_gate_fn
+from optimization import Optimize, optimize_phase, optimize_voltage
 import parameters
 from constants import scale, majorana_pair_indices
-from utils import voltage_dict, eigsh, svd_transformation
-
+from utils import voltage_dict, eigsh, svd_transformation, hamiltonian
 
 # options = cluster_options()
 # options.worker_cores = 2
@@ -37,21 +36,35 @@ def parameter_tuning(newconfig):
         config, poisson_system=[], linear_problem=[], boundaries=[], scale=scale
     )
 
-    thickness, gap = newconfig
+    print("hello")
+
+    dthickness, width, length, angle = newconfig
+
+    print("hello")
 
     change_config = [
-        {"device": {"thickness": {"dielectric": thickness}}},
-        {"gate": {"channel_width": gap}},
+        {"device": {"thickness": {"dielectric": dthickness}}},
+        {"gate": {"L": length, "channel_width": width, "angle": angle, "gap": 2}},
     ]
 
     try:
         _, boundaries, poisson_system, linear_problem = optimize.changeconfig(
             change_config
         )
+<<<<<<< HEAD:codes/parallel.py
         return "Success"
 
     except AssertionError:
         return "ERROR"
+=======
+        symmetry = "Pass"
+
+    except AssertionError:
+        symmetry = "Failed"
+        pass
+
+    return symmetry
+>>>>>>> master:code/parallel.py
 
     pairs = ["right-top", "left-top", "left-right"]
     voltages = OrderedDict()
@@ -143,7 +156,7 @@ def parameter_tuning(newconfig):
 
         iteration += 1
 
-    return intermediate_couplings, voltages, optimal_phases
+    return symmetry, intermediate_couplings, voltages, optimal_phases
 
 
 # if __name__ == "__main__":
