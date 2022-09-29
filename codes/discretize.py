@@ -12,6 +12,12 @@ from layout import (
 )
 
 
+def check_grid(A, B):
+    if A % B:
+        return A % B
+    return B
+
+
 def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     """
     Parameters

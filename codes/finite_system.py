@@ -3,7 +3,7 @@ import kwant.continuum
 import numpy as np
 import tinyarray as ta
 
-from .constants import scale
+from constants import scale
 
 rounding_limit = 3
 
@@ -70,7 +70,6 @@ def finite_system(**geometry):
 
         return system
 
-    
     def f_params(**params):
 
         mus_nw = params.pop("mus_nw")

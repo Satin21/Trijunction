@@ -1,15 +1,15 @@
 import sys, os
 import numpy as np
-from codes.constants import voltage_keys, scale
+from constants import voltage_keys, scale
 from scipy.linalg import svd
 import scipy.sparse.linalg as sla
 from shapely.geometry.polygon import Polygon
 import kwant
 import kwant.linalg.mumps as mumps
 from scipy.sparse import identity
-sys.path.append(os.path.realpath('./../spin-qubit/'))
-from utility import wannier_basis
 
+sys.path.append(os.path.realpath("./../spin-qubit/"))
+from utility import wannier_basis
 
 
 class LuInv(sla.LinearOperator):

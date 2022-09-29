@@ -2,9 +2,9 @@ import sys, os
 import numpy as np
 import tinyarray as ta
 from tqdm import tqdm
-from codes.parameters import junction_parameters
+from parameters import junction_parameters
 
-sys.path.append(os.path.realpath('./../spin-qubit/'))
+sys.path.append(os.path.realpath("/home/tinkerer/spin-qubit/"))
 from potential import gate_potential
 
 
@@ -46,7 +46,7 @@ def linear_Hamiltonian(
     zero_potential = dict(
         zip(
             ta.array(pp["site_coords"][:, [0, 1]] - pp["offset"]),
-            np.zeros(len(pp["site_coords"]))
+            np.zeros(len(pp["site_coords"])),
         )
     )
 
@@ -92,7 +92,6 @@ def linear_Hamiltonian(
 def hamiltonian(
     kwant_system,
     linear_terms,
-    linear_coefficients: dict,
     params_fn: callable,
     **params,
 ):
@@ -100,7 +99,7 @@ def hamiltonian(
     Build Hamiltonian with a linear potential and a potential
     independent part. Parameters for both part are provided by
     `params`.
-    
+
     Parameters
     ----------
     kwant_system: kwant builder
@@ -108,22 +107,17 @@ def hamiltonian(
     linear_coefficients: dictionary with voltages for each gate
     params_fn: position dep function describing trijunction
     params: dictionary with parameters for the Hamiltonian
-    
+
     Returns
     -------
     numerical_hamiltonian
     """
-    summed_ham = sum(
-        [
-            linear_coefficients[key] * linear_terms[key]
-            for key, value in linear_coefficients.items()
-        ]
-    )
+    summed_ham = sum([params[key] * linear_terms[key] for key in linear_terms.keys()])
 
     base_ham = kwant_system.hamiltonian_submatrix(
         sparse=True, params=params_fn(**params)
     )
-    
-    numerical_hamiltonian =  base_ham + summed_ham
+
+    numerical_hamiltonian = base_ham + summed_ham
 
     return numerical_hamiltonian

@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.constants import electron_mass, hbar
 from collections.abc import Mapping
-from codes.constants import bands, voltage_keys
+from constants import bands, voltage_keys
 from collections import OrderedDict
 
 
-def voltage_dict(x, dirichlet=False):
+def voltage_dict(x, dirichlet=True):
     """Return dictionary of gate voltages
     x: list
     voltages
@@ -24,10 +24,8 @@ def voltage_dict(x, dirichlet=False):
 
 
 def pair_voltages(initial=(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5e-3):
-    """
-    
-    """
-    pairs = ['right-top', 'left-top', 'left-right']
+    """ """
+    pairs = ["right-top", "left-top", "left-right"]
     voltages = OrderedDict()
     initial_condition = OrderedDict()
 
