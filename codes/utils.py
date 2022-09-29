@@ -180,3 +180,4 @@ def dep_acc_regions(
         depletion[x] = dep_indices[x]
 
     return depletion, accumulation
+
