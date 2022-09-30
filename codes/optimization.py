@@ -24,9 +24,9 @@ def loss(x, *argv):
     """
     pair = argv[0]
     params = argv[1]
-    kwant_system, f_params, linear_terms, unperturbed_ml_wfs = argv[2]
+    kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
 
-    if isinstance(x, list):
+    if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
     elif isinstance(x, float):
         new_parameter = phase_pairs(pair, x * np.pi)
@@ -34,98 +34,31 @@ def loss(x, *argv):
     params.update(new_parameter)
 
     numerical_hamiltonian = hamiltonian(kwant_system, linear_terms, f_params, **params)
+    
+    ## Uncomment this in case of soft-thresholding
+    # if isinstance(x, (list, np.ndarray)):
+    #     potential_shape = soft_threshold(numerical_hamiltonian.A, 
+    #                    params['dep_index'],
+    #                    params['acc_index'],
+    #                    params['mu'])
+    #     if potential_shape > 0:
+    #         return threshold
 
-    # shuffle the wavwfunctions based on the Majorana pairs to be optimized
-    pair_indices = majorana_pair_indices[pair].copy()
-    pair_indices.append(list(set(range(3)) - set(pair_indices))[0])
-    shuffle = pair_indices + [-3, -2, -1]
-    desired_order = np.array(list(range(2, 5)) + list(range(2)) + [5])[shuffle]
-
-    reference_wave_functions = unperturbed_ml_wfs[desired_order]
 
     return majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
 
 
-def potential_shape_loss(x, *argv):
+def soft_threshold(ham, dep_index:dict, acc_index:dict, mu:float):
+    loss = 0
+    for index in dep_index.values():
+        diff = ham[4*index, 4*index] - mu
+        loss += diff if diff < 0 else 0
 
-    if len(x) == 4:
-        voltages = {key: x[index] for key, index in voltage_keys.items()}
-
-    elif len(x) == 2:
-        voltages = {}
-
-        for arm in ["left", "right", "top"]:
-            for i in range(2):
-                voltages["arm_" + str(i)] = x[0]
-
-        voltages["global_accumul"] = x[-1]
-
-    for i in range(6):
-        voltages["dirichlet_" + str(i)] = 0.0
-
-    poisson_system, poisson_params, mus_nw, dep_points, acc_points = argv
-
-    charges = {}
-    potential = gate_potential(
-        poisson_system,
-        poisson_params["linear_problem"],
-        poisson_params["site_coords"][:, [0, 1]],
-        poisson_params["site_indices"],
-        voltages,
-        charges,
-        offset=poisson_params["offset"],
-    )
-
-    # potential.update((x, y * -1) for x, y in potential.items())
-
-    potential_array = np.array(list(potential.values()))
-    potential_keys = np.array(list(potential.keys()))
-
-    loss = []
-
-    for gate, index in acc_points.items():
-
-        channel = potential_array[tuple(acc_points[gate])]
-
-        dgate = potential_array[
-            sum([dep_points[gate + "_" + str(i)] for i in range(1, 3)], [])
-        ]
-
-        if np.any(dgate < mus_nw):
-            # Gated regions not depleted
-            loss.append(_depletion_relative_potential(dgate, mus_nw))
-
-        if channel > mus_nw:
-            # Channel is depleted relative to nw
-            loss.append(np.abs(channel - mus_nw))
-
-        if np.any(channel > dgate):
-            # Channel is depleted relative to gated regions
-            loss.append(_depletion_relative_potential(dgate, channel))
-
-    for gate in set(["left", "right", "top"]) - set(acc_points.keys()):
-        dgate = potential_array[
-            sum([dep_points[gate + "_" + str(i)] for i in range(1, 3)], [])
-        ]
-
-        if np.any(dgate < mus_nw):
-            # Gated regions not depleted relative to nw
-            loss.append(_depletion_relative_potential(dgate, mus_nw))
-
-        channel = potential_array[tuple(np.hstack(dep_points[gate]))]
-
-        if np.any(channel < mus_nw):
-            # Channel is not depleted relative to nw
-            loss.append(np.abs(mus_nw - channel))
-
-    if len(loss):
-        return potential, sum(np.hstack(loss))
-
-    return potential, 0
-
-
-def _depletion_relative_potential(potential, reference):
-    return np.abs(potential[np.where(potential < reference)] - reference)
+    for index in acc_index.values():
+        diff = ham[4*index, 4*index] - mu
+        loss += diff if diff > 0 else 0
+    
+    return loss
 
 
 def majorana_loss(

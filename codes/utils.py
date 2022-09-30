@@ -1,15 +1,25 @@
 import sys, os
 import numpy as np
-from codes.constants import voltage_keys, scale
+from codes.constants import voltage_keys, scale, majorana_pair_indices
 from scipy.linalg import svd
 import scipy.sparse.linalg as sla
 from shapely.geometry.polygon import Polygon
 import kwant
 import kwant.linalg.mumps as mumps
 from scipy.sparse import identity
+import collections
 
 sys.path.append(os.path.realpath("./../spin-qubit/"))
 from utility import wannier_basis
+
+# https://stackoverflow.com/a/3233356
+def dict_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = dict_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 
 class LuInv(sla.LinearOperator):
@@ -74,6 +84,14 @@ def projected_operator(operator, eigenstates):
 
     return projected_operator
 
+def order_wavefunctions(pair):
+    # shuffle the wavwfunctions based on the Majorana pairs to be optimized
+    pair_indices = majorana_pair_indices[pair].copy()
+    pair_indices.append(list(set(range(3)) - set(pair_indices))[0])
+    shuffle = pair_indices + [-3, -2, -1]
+    desired_order = np.array(list(range(2, 5)) + list(range(2)) + [5])[shuffle]
+    return desired_order
+
 
 def wannierize(tightbindingsystem, eigenstates):
 
@@ -117,7 +135,7 @@ def _closest_node(node, nodes):
     return np.argmin(dist)
 
 
-def dep_acc_regions(
+def dep_acc_index(
     poisson_system, site_indices: np.ndarray, kwant_geometry: dict, pair: str
 ):
     """
@@ -174,7 +192,7 @@ def dep_acc_regions(
         closest_coord_index = _closest_node(
             nw_centers[gate], grid_points[twodeg_grid][:, [0, 1]]
         )
-        accumulation[gate] = [[closest_coord_index]]
+        accumulation[gate] = [closest_coord_index]
 
     for x in dep_regions:
         depletion[x] = dep_indices[x]

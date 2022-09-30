@@ -4,6 +4,9 @@ majorana_pair_indices = {
     "left-top": [0, 2],
     "right-top": [1, 2],
 }
+
+
+    
 voltage_keys = {
     "left_1": 0,
     "left_2": 0,

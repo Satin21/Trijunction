@@ -3,7 +3,7 @@ import numpy as np
 from codes.constants import scale, voltage_keys
 from codes.tools import linear_Hamiltonian
 from codes.utils import eigsh, wannierize
-from codes.parameters import voltage_dict
+from codes.parameters import voltage_dict, junction_parameters
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
@@ -64,6 +64,10 @@ class Trijunction:
         self.site_coords, self.site_indices = discrete_system_coordinates(
             self.poisson_system, [("mixed", "twoDEG")], boundaries=None
         )
+        
+        unique_indices = self.site_coords[:, 2] == 0
+        self.site_coords = self.site_coords[unique_indices]
+        self.site_indices = self.site_indices[unique_indices]
 
         self.grid_points = self.poisson_system.grid.points
 
@@ -71,7 +75,7 @@ class Trijunction:
         grid_spacing = self.config["device"]["grid_spacing"]["twoDEG"]
         self.offset = crds[0] % grid_spacing
         # symmetry check fails, debug
-        # self.check_symmetry([-7.0e-3, -6.8e-3, -7.0e-3, 3e-3])
+        self.check_symmetry([-7.0e-3, -7.0e-3, -7.0e-3, 3e-3])
 
     def create_base_matrices(self):
         """
