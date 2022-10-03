@@ -3,7 +3,7 @@ from codes.utils import eigsh
 from toolz.functoolz import memoize
 
 
-def adaptive_two_parameters(xy, voltages, gates, params, kwant_params):
+def adaptive_two_parameters(xy, gates, params, kwant_params):
     """
     Energy of the first non-zero eigenvalue.
     `gates` can be 'left', 'right', 'top', 'accum'.
@@ -11,14 +11,13 @@ def adaptive_two_parameters(xy, voltages, gates, params, kwant_params):
 
     for i, gate in enumerate(gates):
         if gate in ["left", "right", "top"]:
-            voltages[gate + "_1"] = xy[i]
-            voltages[gate + "_2"] = xy[i]
-        elif gate == "accum":
-            voltages[gate] = xy[i]
+            params[gate + "_1"] = xy[i]
+            params[gate + "_2"] = xy[i]
+        elif gate == "global_accumul":
+            params[gate] = xy[i]
 
     evals = diagonalisation(
         kwant_params=kwant_params,
-        voltages=voltages,
         params=params,
         new_param={},
         nevals=6,
