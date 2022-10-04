@@ -54,7 +54,7 @@ def diagonalisation(
 
     params.update(new_param)
 
-    if isinstance(linear_terms, coo_matirx) or isinstance(linear_terms, csr_matirx):
+    if isinstance(linear_terms, coo_matrix) or isinstance(linear_terms, csr_matrix):
         linear_ham = linear_terms
     else:
         linear_ham = sum(
