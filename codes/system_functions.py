@@ -1,7 +1,8 @@
 from typing import Dict, Tuple
 from codes.utils import eigsh
 from kwant.builder import FiniteSystem
-
+from scipy.sparse._coo import coo_matrix
+from scipy.sparse._csr import csr_matrix
 
 def adaptive_two_parameters(
     xy, gates, params, trijunction, linear_terms, f_params=None
@@ -53,12 +54,12 @@ def diagonalisation(
 
     params.update(new_param)
 
-    if isinstance(linear_terms, dict):
+    if isinstance(linear_terms, coo_matirx) or isinstance(linear_terms, csr_matirx):
+        linear_ham = linear_terms
+    else:
         linear_ham = sum(
             [params[key] * linear_terms[key] for key in linear_terms.keys()]
         )
-    else:
-        linear_ham = linear_terms
 
     if isinstance(trijunction, FiniteSystem):
         num_ham = trijunction.hamiltonian_submatrix(
