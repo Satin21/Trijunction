@@ -5,24 +5,25 @@ from scipy.sparse._coo import coo_matrix
 from scipy.sparse._csr import csr_matrix
 
 def adaptive_two_parameters(
-    xy, gates, params, trijunction, linear_terms, f_params=None
+    xy, keys, params, trijunction, linear_terms, f_params=None
 ):
     """
-    Energy of the first non-zero eigenvalue.
-    `gates` can be 'left', 'right', 'top', 'accum'.
     """
 
-    for i, gate in enumerate(gates):
-        if gate in ["left", "right", "top"]:
-            params[gate + "_1"] = xy[i]
-            params[gate + "_2"] = xy[i]
-        elif gate == "global_accumul":
-            params[gate] = xy[i]
+    new_param = {}
+    for i, key in enumerate(keys):
+        if key in ["left", "right", "top"]:
+            new_param[key + "_1"] = xy[i]
+            new_param[key + "_2"] = xy[i]
+        else:
+            new_param[key] = xy[i]
 
     evals = diagonalisation(
-        kwant_params=kwant_params,
+        trijunction=trijunction,
+        linear_terms=linear_terms,
+        f_params=f_params,
         params=params,
-        new_param={},
+        new_param=new_param,
         nevals=6,
     )
 
