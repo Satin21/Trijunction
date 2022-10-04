@@ -1,9 +1,11 @@
 from typing import Dict, Tuple
 from codes.utils import eigsh
-from scipy.sparse._coo import coo_matrix
+from kwant.builder import FiniteSystem
 
 
-def adaptive_two_parameters(xy, gates, params, trijunction, linear_terms, f_params=None):
+def adaptive_two_parameters(
+    xy, gates, params, trijunction, linear_terms, f_params=None
+):
     """
     Energy of the first non-zero eigenvalue.
     `gates` can be 'left', 'right', 'top', 'accum'.
@@ -26,13 +28,15 @@ def adaptive_two_parameters(xy, gates, params, trijunction, linear_terms, f_para
     return evals[-1]
 
 
-def diagonalisation(new_param, trijunction, linear_terms, params, f_params=None, nevals=20):
+def diagonalisation(
+    new_param, trijunction, linear_terms, params, f_params=None, nevals=20
+):
     """
     Updates parameters dictionary by `new_param` and diagonalises
-    the Hamiltonian. In many cases one only changes the linear 
+    the Hamiltonian. In many cases one only changes the linear
     terms or the base Hamiltonian. One can pass the other matrix
     directly as a coo_matrix.
-    
+
     Parameters
     ----------
     new_param: dict
@@ -41,23 +45,25 @@ def diagonalisation(new_param, trijunction, linear_terms, params, f_params=None,
     params: dict
     f_params: callable
     nevals: int
-    
+
     Returns
     -------
     lowest `nevals` eigenvalues
     """
-    
+
     params.update(new_param)
-    
-    if not isinstance(linear_terms, coo_matrix):
+
+    if isinstance(linear_terms, dict):
         linear_ham = sum(
             [params[key] * linear_terms[key] for key in linear_terms.keys()]
         )
     else:
         linear_ham = linear_terms
 
-    if not isinstance(trijunction, coo_matrix):
-        num_ham = trijunction.hamiltonian_submatrix(sparse=True, params=f_params(**params))
+    if isinstance(trijunction, FiniteSystem):
+        num_ham = trijunction.hamiltonian_submatrix(
+            sparse=True, params=f_params(**params)
+        )
     else:
         num_ham = trijunction
 
