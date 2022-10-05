@@ -10,7 +10,6 @@ from codes.discretize import discretize_heterostructure
 import sys
 import tinyarray as ta
 from collections import OrderedDict
-from copy import deepcopy
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance
@@ -48,7 +47,7 @@ class Trijunction:
         """
         
         self.geometry, self.trijunction, self.f_params = kwantsystem(
-            self.config, self.boundaries, deepcopy(self.nw_centers), self.scale
+            self.config, self.boundaries, self.nw_centers, self.scale
         )
 
         self.densityoperator = kwant.operator.Density(self.trijunction, np.eye(4))
