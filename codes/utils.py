@@ -8,6 +8,8 @@ import kwant
 import kwant.linalg.mumps as mumps
 from scipy.sparse import identity
 import collections
+from alphashape import alphashape
+import matplotlib.pyplot as plt
 
 sys.path.append(os.path.realpath("./../spin-qubit/"))
 from utility import wannier_basis
@@ -136,10 +138,10 @@ def _closest_node(node, nodes):
 
 
 def dep_acc_index(
-    poisson_system, site_indices: np.ndarray, kwant_geometry: dict, pair: str
+    poisson_system, site_indices: np.ndarray, nw_centers: dict, pair: str, plot_points=False
 ):
-    """
-    Return indices from the poisson system grid corresponding to regions that
+
+    """Return indices from the poisson system grid corresponding to regions that
     needs to de depleted according to the desired majorana pair
     """
 
@@ -165,20 +167,17 @@ def dep_acc_index(
 
     for gate in dep_regions:
         indices = voltage_regions[gate]
-        center = Polygon(grid_points[indices][:, [0, 1]]).centroid.coords
+        points = np.unique(grid_points[indices][:, [0, 1]], axis=0)
+        center = list(alphashape(points, alpha=0.01).centroid.coords)[0]
+
         closest_coord_index = _closest_node(
-            list(center)[0], grid_points[twodeg_grid][:, [0, 1]]
+            center,
+            grid_points[twodeg_grid][
+                :, [0, 1]
+            ],  ## Orthogonal projection of a gate coordinate to 2DEG
         )
         dep_indices[gate] = [closest_coord_index]
 
-    geometry = kwant_geometry
-
-    nw_centers = {}
-    nw_centers["left"] = np.array(geometry["centers"][0]) / scale
-    nw_centers["right"] = np.array(geometry["centers"][1]) / scale
-    nw_centers["top"] = np.array(geometry["centers"][2])
-    nw_centers["top"][1] -= geometry["nw_l"]
-    nw_centers["top"][1] /= scale
 
     depletion = {}
     for gate in set(["left", "right", "top"]) - set(pair.split("-")):
@@ -196,6 +195,24 @@ def dep_acc_index(
 
     for x in dep_regions:
         depletion[x] = dep_indices[x]
+        
+    if plot_points:
+        site_coords = grid_points[site_indices]
+        for index in np.hstack(list(accumulation.values())):
+            point = site_coords[index]
+            print(point)
+            plt.scatter(point[0], point[1], c='b')
+
+        for index in np.hstack(list(depletion.values())):
+            point = site_coords[index]
+            print(point)
+            plt.scatter(point[0], point[1], c = 'r')
+
+        for key, value in voltage_regions.items():
+            if not key.startswith(('global', 'dirichlet')):
+                coords = grid_points[value]
+                plt.scatter(coords[:, 0], coords[:, 1], s = 0.1)
+        
 
     return depletion, accumulation
 

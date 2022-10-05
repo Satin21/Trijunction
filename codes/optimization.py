@@ -22,6 +22,7 @@ def loss(x, *argv):
         list when optimizing voltages and float when optimizing phases
 
     """
+    
     pair = argv[0]
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
@@ -35,26 +36,28 @@ def loss(x, *argv):
 
     numerical_hamiltonian = hamiltonian(kwant_system, linear_terms, f_params, **params)
     
-    ## Uncomment this in case of soft-thresholding
-    # if isinstance(x, (list, np.ndarray)):
-    #     potential_shape = soft_threshold(numerical_hamiltonian.A, 
-    #                    params['dep_index'],
-    #                    params['acc_index'],
-    #                    params['mu'])
-    #     if potential_shape > 0:
-    #         return threshold
-
-
-    return majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
+    # Uncomment this in case of soft-thresholding
+    if isinstance(x, (list, np.ndarray)):
+        potential_shape = soft_threshold(numerical_hamiltonian, 
+                                         params['dep_index'],
+                                         params['acc_index'],
+                                         params['mus_nw'][0]
+                                        )
+        if potential_shape > 0:
+            return np.abs(potential_shape)
+    
+    cost = majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
+    
+    return cost
 
 
 def soft_threshold(ham, dep_index:dict, acc_index:dict, mu:float):
     loss = 0
-    for index in dep_index.values():
+    for index in np.hstack(list(dep_index.values())):
         diff = ham[4*index, 4*index] - mu
         loss += diff if diff < 0 else 0
 
-    for index in acc_index.values():
+    for index in np.hstack(list(acc_index.values())):
         diff = ham[4*index, 4*index] - mu
         loss += diff if diff > 0 else 0
     
@@ -93,7 +96,7 @@ def majorana_loss(
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:])
 
-    return -desired + np.log(undesired / desired + 1e-3)
+    return -desired + undesired
 
 
 def check_grid(A, B):
