@@ -31,22 +31,25 @@ def loss(x, *argv):
         new_parameter = voltage_dict(x)
     elif isinstance(x, float):
         new_parameter = phase_pairs(pair, x * np.pi)
+        
+    # print(new_parameter)
 
     params.update(new_parameter)
-
-    numerical_hamiltonian = hamiltonian(kwant_system, linear_terms, f_params, **params)
+    
+    linear_ham, numerical_hamiltonian = hamiltonian(kwant_system, linear_terms, f_params, **params)
     
     # Uncomment this in case of soft-thresholding
     if isinstance(x, (list, np.ndarray)):
-        potential_shape = soft_threshold(numerical_hamiltonian, 
+        potential_shape = soft_threshold(linear_ham, 
                                          params['dep_index'],
                                          params['acc_index'],
                                          params['mus_nw'][0]
                                         )
-        if potential_shape > 0:
+        if np.abs(potential_shape) > 0:
             return np.abs(potential_shape)
     
     cost = majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
+    
     
     return cost
 

@@ -138,7 +138,7 @@ def _closest_node(node, nodes):
 
 
 def dep_acc_index(
-    poisson_system, site_indices: np.ndarray, nw_centers: dict, pair: str, plot_points=False
+    poisson_system, kwant_sites, site_indices: np.ndarray, nw_centers: dict, pair: str, plot_points=False
 ):
 
     """Return indices from the poisson system grid corresponding to regions that
@@ -172,9 +172,7 @@ def dep_acc_index(
 
         closest_coord_index = _closest_node(
             center,
-            grid_points[twodeg_grid][
-                :, [0, 1]
-            ],  ## Orthogonal projection of a gate coordinate to 2DEG
+            kwant_sites,  ## Orthogonal projection of a gate coordinate to 2DEG
         )
         dep_indices[gate] = [closest_coord_index]
 
@@ -182,14 +180,14 @@ def dep_acc_index(
     depletion = {}
     for gate in set(["left", "right", "top"]) - set(pair.split("-")):
         closest_coord_index = _closest_node(
-            nw_centers[gate], grid_points[twodeg_grid][:, [0, 1]]
+            nw_centers[gate], kwant_sites
         )
         depletion[gate] = [closest_coord_index]
 
     accumulation = {}
     for gate in pair.split("-"):
         closest_coord_index = _closest_node(
-            nw_centers[gate], grid_points[twodeg_grid][:, [0, 1]]
+            nw_centers[gate], kwant_sites
         )
         accumulation[gate] = [closest_coord_index]
 
@@ -199,12 +197,12 @@ def dep_acc_index(
     if plot_points:
         site_coords = grid_points[site_indices]
         for index in np.hstack(list(accumulation.values())):
-            point = site_coords[index]
+            point = kwant_sites[index]
             print(point)
             plt.scatter(point[0], point[1], c='b')
 
         for index in np.hstack(list(depletion.values())):
-            point = site_coords[index]
+            point = kwant_sites[index]
             print(point)
             plt.scatter(point[0], point[1], c = 'r')
 

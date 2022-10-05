@@ -120,4 +120,4 @@ def hamiltonian(
 
     numerical_hamiltonian = base_ham + summed_ham
 
-    return numerical_hamiltonian
+    return summed_ham, numerical_hamiltonian
