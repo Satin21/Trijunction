@@ -26,6 +26,7 @@ def loss(x, *argv):
     pair = argv[0]
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
+    pot = argv[3]
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
@@ -40,17 +41,16 @@ def loss(x, *argv):
     
     # Uncomment this in case of soft-thresholding
     if isinstance(x, (list, np.ndarray)):
-        potential_shape = soft_threshold(linear_ham, 
+        potential_shape = soft_threshold(numerical_hamiltonian, 
                                          params['dep_index'],
                                          params['acc_index'],
                                          params['mus_nw'][0]
                                         )
-        if np.abs(potential_shape) > 0:
-            return np.abs(potential_shape)
+        if np.abs(potential_shape) > 0 + pot:
+            return np.abs(potential_shape)**2
     
     cost = majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
-    
-    
+
     return cost
 
 
@@ -99,7 +99,7 @@ def majorana_loss(
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:])
 
-    return -desired + undesired
+    return -desired**2 + undesired**2
 
 
 def check_grid(A, B):
