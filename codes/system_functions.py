@@ -61,7 +61,7 @@ def diagonalisation(
     ----------
     new_param: dict
     trijunction: kwant.Builder or coo_matrix
-    linear_terms: set of coo_matrices or single coo_matrix
+    linear_terms: dict of coo_matrices or single coo_matrix
     params: dict
     f_params: callable
     nevals: int
@@ -73,12 +73,13 @@ def diagonalisation(
 
     params.update(new_param)
 
-    if isinstance(linear_terms, coo_matrix) or isinstance(linear_terms, csr_matrix):
-        linear_ham = linear_terms
-    else:
+    if isinstance(linear_terms, dict):
         linear_ham = sum(
             [params[key] * linear_terms[key] for key in linear_terms.keys()]
         )
+    else:
+        linear_ham = linear_terms
+        
 
     if isinstance(trijunction, FiniteSystem):
         num_ham = trijunction.hamiltonian_submatrix(
