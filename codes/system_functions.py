@@ -8,6 +8,24 @@ def adaptive_two_parameters(
     xy, keys, params, trijunction, linear_terms, f_params=None
 ):
     """
+    Sample N parameters in the trijunction Hamiltonian.
+    The parameters to be sampled are defined in `keys`.
+    One can sample both voltages and hamiltonian parameters
+    simultaneously. In case one of those is fixed, the matrix can
+    be passed as an argument for `trijuction` or `linear_terms`.
+    
+    Parameters
+    ----------
+    xy: tuple
+    trijunction: kwant.Builder or coo_matrix
+    linear_terms: set of coo_matrices or single coo_matrix
+    params: dict
+    f_params: callable
+    nevals: int
+
+    Returns
+    -------
+    lowest `nevals` eigenvalues
     """
 
     new_param = {}
