@@ -14,7 +14,7 @@ from codes.utils import wannierize, svd_transformation, eigsh
 from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
 from utility import gather_data
-
+from dask import delayed
 
 def loss(x, *argv):
     """
@@ -22,11 +22,12 @@ def loss(x, *argv):
         list when optimizing voltages and float when optimizing phases
 
     """
+    loss_args = argv[0]
     
-    pair = argv[0]
-    params = argv[1]
-    kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
-    pot = argv[3]
+    pair = loss_args[0]
+    params = loss_args[1]
+    kwant_system, f_params, linear_terms, reference_wave_functions = loss_args[2]
+    pot = loss_args[3]
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
@@ -41,17 +42,36 @@ def loss(x, *argv):
     
     # Uncomment this in case of soft-thresholding
     if isinstance(x, (list, np.ndarray)):
-        potential_shape = soft_threshold(numerical_hamiltonian, 
+        potential_shape = soft_threshold(linear_ham, 
                                          params['dep_index'],
                                          params['acc_index'],
                                          params['mus_nw'][0]
                                         )
         if np.abs(potential_shape) > 0 + pot:
-            return np.abs(potential_shape)**2
+            return 1e-3 * np.abs(potential_shape)
     
     cost = majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
 
     return cost
+
+def jacobian(x0, *args):
+
+    initial = delayed(loss)(x0, args[0])
+    difference = []
+    y0 = [x0] * len(x0)
+    step_size = args[1]
+    y0 += np.eye(len(x0)) * step_size
+    
+    res = [delayed(objective)(row, args[0]) for row in y0]
+    
+        
+    def difference(yold, ynew):
+        return (ynew - yold) / step_size
+    
+    output = delayed(loss)(initial, res)
+    
+    return output.compute()
+
 
 
 def soft_threshold(ham, dep_index:dict, acc_index:dict, mu:float):
@@ -99,7 +119,7 @@ def majorana_loss(
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:])
 
-    return -desired**2 + undesired**2
+    return -desired + undesired
 
 
 def check_grid(A, B):
