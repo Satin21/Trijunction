@@ -62,13 +62,13 @@ def jacobian(x0, *args):
     step_size = args[1]
     y0 += np.eye(len(x0)) * step_size
     
-    res = [delayed(objective)(row, args[0]) for row in y0]
+    res = [delayed(loss)(row, args[0]) for row in y0]
     
         
     def difference(yold, ynew):
         return (ynew - yold) / step_size
     
-    output = delayed(loss)(initial, res)
+    output = delayed(difference)(initial, res)
     
     return output.compute()
 
