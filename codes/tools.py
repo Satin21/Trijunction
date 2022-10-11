@@ -16,7 +16,7 @@ def get_potential(potential):
 
 
 def linear_Hamiltonian(
-    poisson_system, poisson_params, kwant_system, kwant_params_fn, gates
+    poisson_system, poisson_params, kwant_system, kwant_params_fn, kwant_params, gates
 ):
     """
     Generate the matrix describing the linear contribution of each gate.
@@ -42,18 +42,7 @@ def linear_Hamiltonian(
 
     pp = poisson_params
 
-    # generate flat potential
-    zero_potential = dict(
-        zip(
-            ta.array(pp["site_coords"][:, [0, 1]] - pp["offset"]),
-            np.zeros(len(pp["site_coords"])),
-        )
-    )
-
     # base hamiltonian
-    kwant_params = junction_parameters()
-    kwant_params.update(potential=zero_potential)
-
     base_ham = kwant_system.hamiltonian_submatrix(
         sparse=True, params=kwant_params_fn(**kwant_params)
     )
