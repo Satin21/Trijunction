@@ -56,7 +56,7 @@ class Trijunction:
             self.optimal_phases()
             self.optimal_base_hams = {}
             for pair in pairs:
-                self.base_params.update(np.pi*self.optimal_phases[pair])
+                self.base_params.update(self.optimal_phases[pair])
                 ham = self.trijunction.hamiltonian_submatrix(
                     sparse=True, params=self.f_params(**self.base_params)
                 )
@@ -143,7 +143,7 @@ class Trijunction:
 
             sol = minimize_scalar(loss, args=opt_args, bounds=(0, 2), method="bounded")
 
-            self.optimal_phases[pair] = phase_pairs(pair, sol.x)
+            self.optimal_phases[pair] = phase_pairs(pair, np.pi*sol.x)
 
     def potential(self, voltage_list, charges={}):
         """
