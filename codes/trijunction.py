@@ -29,9 +29,9 @@ class Trijunction:
     Class wrapping all objects associated to a trijunction
     """
 
-    def __init__(self, config):
+    def __init__(self, config, optimize_phase=True):
         """
-        Initialisation requires only a `config` dictionary
+        Initialisation requires only a `config` dictionary.
         """
         self.scale = scale
         self.config = config
@@ -43,17 +43,30 @@ class Trijunction:
             self.nw_centers,
         ) = gate_coords(self.config)
 
-    def make_system(self):
         self.initialize_kwant()
         self.initialize_poisson()
+
+        self.base_params = junction_parameters()
+        self.base_params.update(potential=self.flat_potential())
+
         self.create_base_matrices()
         self.generate_wannier_basis([-7.0e-3, -6.8e-3, -7.0e-3, 3e-3])
+
+        if optimize_phase:
+            self.optimal_phases()
+            self.optimal_base_hams = {}
+            for pair in pairs:
+                self.base_params.update(np.pi*self.optimal_phases[pair])
+                ham = self.trijunction.hamiltonian_submatrix(
+                    sparse=True, params=self.f_params(**self.base_params)
+                )
+                self.optimal_base_hams[pair] = ham
 
     def initialize_kwant(self):
         """
         Create kwant system
         """
-        
+
         self.geometry, self.trijunction, self.f_params = kwantsystem(
             self.config, self.boundaries, self.nw_centers, self.scale
         )
@@ -73,7 +86,7 @@ class Trijunction:
         self.site_coords, self.site_indices = discrete_system_coordinates(
             self.poisson_system, [("mixed", "twoDEG")], boundaries=None
         )
-        
+
         unique_indices = self.site_coords[:, 2] == 0
         self.site_coords = self.site_coords[unique_indices]
         self.site_indices = self.site_indices[unique_indices]
@@ -83,7 +96,6 @@ class Trijunction:
         crds = self.site_coords[:, [0, 1]]
         grid_spacing = self.config["device"]["grid_spacing"]["twoDEG"]
         self.offset = crds[0] % grid_spacing
-        # symmetry check fails, debug
         self.check_symmetry([-7.0e-3, -7.0e-3, -7.0e-3, 3e-3])
 
     def create_base_matrices(self):
@@ -100,12 +112,38 @@ class Trijunction:
         }
 
         self.base_ham, self.linear_terms = linear_Hamiltonian(
-            self.poisson_system,
-            poisson_params,
-            self.trijunction,
-            self.f_params,
-            voltage_regions,
+            poisson_system=self.poisson_system,
+            poisson_params=poisson_params,
+            kwant_system=self.trijunction,
+            kwant_params_fn=self.f_params,
+            kwant_params=self.base_params,
+            gates=voltage_regions,
         )
+
+    def flat_potential(self, value=0):
+        flat_potential = dict(
+            zip(
+                ta.array(self.site_coords[:, [0, 1]] - self.offset),
+                np.zeros(len(self.site_coords)),
+            )
+        )
+        return flat_potential
+
+    def optimal_phases(self):
+        self.optimal_phases = {}
+        voltages = pair_voltages(
+            initial=(-1.0e-3, -1.0e-3, -1.0e-3, 2e-3), depleted=-7e-3
+        )
+
+        for pair in pairs:
+            self.base_params.update(voltages[pair])
+            opt_args = tuple(
+                [pair, self.base_params, list(self.optimiser_arguments().values())]
+            )
+
+            sol = minimize_scalar(loss, args=opt_args, bounds=(0, 2), method="bounded")
+
+            self.optimal_phases[pair] = phase_pairs(pair, sol.x)
 
     def potential(self, voltage_list, charges={}):
         """
@@ -207,10 +245,3 @@ class Trijunction:
         to_check = [diff_f_mu(*site) for site in kwant_sites]
 
         assert max(to_check) < 1e-9
-
-
-"""
-if len(change_config):
-for local_config in change_config:
-config = dict_update(config, local_config)
-"""
