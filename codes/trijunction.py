@@ -1,15 +1,23 @@
 import kwant
 import numpy as np
-from codes.constants import scale, voltage_keys
-from codes.tools import linear_Hamiltonian
-from codes.utils import eigsh, wannierize
-from codes.parameters import voltage_dict, junction_parameters
-from codes.gate_design import gate_coords
-from codes.finite_system import kwantsystem
-from codes.discretize import discretize_heterostructure
 import sys
 import tinyarray as ta
 from collections import OrderedDict
+from scipy.optimize import minimize_scalar
+
+from codes.constants import scale, pairs
+from codes.tools import linear_Hamiltonian
+from codes.utils import eigsh, wannierize
+from codes.parameters import (
+    voltage_dict,
+    junction_parameters,
+    pair_voltages,
+    phase_pairs,
+)
+from codes.gate_design import gate_coords
+from codes.finite_system import kwantsystem
+from codes.discretize import discretize_heterostructure
+from codes.optimization import loss
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance
