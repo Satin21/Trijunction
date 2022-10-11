@@ -26,7 +26,7 @@ def loss(x, *argv):
     pair = argv[0]
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
-    pot = argv[3]
+    pot = bands[0]
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
