@@ -22,11 +22,9 @@ def loss(x, *argv):
         list when optimizing voltages and float when optimizing phases
 
     """
-    loss_args = argv[0]
-    
-    pair = loss_args[0]
-    params = loss_args[1]
-    kwant_system, f_params, linear_terms, reference_wave_functions = loss_args[2]
+    pair = argv[0]
+    params = argv[1]
+    kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
     pot = bands[0]
 
     if isinstance(x, (list, np.ndarray)):
