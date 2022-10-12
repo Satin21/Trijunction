@@ -29,7 +29,7 @@ class Trijunction:
     Class wrapping all objects associated to a trijunction
     """
 
-    def __init__(self, config, optimize_phase=True):
+    def __init__(self, config, optimize_phase_pairs=['left-right']):
         """
         Initialisation requires only a `config` dictionary.
         """
@@ -51,11 +51,12 @@ class Trijunction:
 
         self.create_base_matrices()
         self.generate_wannier_basis([-7.0e-3, -6.8e-3, -7.0e-3, 3e-3])
+        self.optimize_phase_pairs = optimize_phase_pairs
 
-        if optimize_phase:
+        if len(optimize_phase_pairs):
             self.optimal_phases()
             self.optimal_base_hams = {}
-            for pair in pairs:
+            for pair in self.optimize_phase_pairs:
                 self.base_params.update(self.optimal_phases[pair])
                 ham = self.trijunction.hamiltonian_submatrix(
                     sparse=True, params=self.f_params(**self.base_params)
@@ -129,13 +130,13 @@ class Trijunction:
         )
         return flat_potential
 
-    def optimal_phases(self):
+    def optimal_phases(self, voltages=(-3.0e-3, -3.0e-3, -3.0e-3, 3e-3), depleted=-7.0e-3):
         self.optimal_phases = {}
         voltages = pair_voltages(
-            initial=(-1.0e-3, -1.0e-3, -1.0e-3, 2e-3), depleted=-7e-3
+            initial=voltages, depleted=depleted
         )
 
-        for pair in pairs:
+        for pair in self.optimize_phase_pairs:
             self.base_params.update(voltages[pair])
             opt_args = tuple(
                 [pair, self.base_params, list(self.optimiser_arguments().values())]
