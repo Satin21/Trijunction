@@ -25,7 +25,9 @@ def loss(x, *argv):
     pair = argv[0]
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
-    pot = bands[0]
+    pot = argv[3]
+    
+    print(x)
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
@@ -39,28 +41,29 @@ def loss(x, *argv):
     linear_ham, numerical_hamiltonian = hamiltonian(kwant_system, linear_terms, f_params, **params)
     
     # Uncomment this in case of soft-thresholding
+    cost = 0
     if isinstance(x, (list, np.ndarray)):
         potential_shape = soft_threshold(linear_ham, 
                                          params['dep_index'],
                                          params['acc_index'],
                                          params['mus_nw'][0]
                                         )
-        if np.abs(potential_shape) > 0 + pot:
-            return 1e-3 * np.abs(potential_shape)
+        # if (np.abs(potential_shape) > 0) + pot:
+        cost += np.abs(potential_shape)
     
-    cost = majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
+    cost += majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
 
     return cost
 
 def jacobian(x0, *args):
 
-    initial = delayed(loss)(x0, args[0])
+    initial = delayed(loss)(x0, *args)
     difference = []
     y0 = [x0] * len(x0)
-    step_size = args[1]
+    step_size = args[-1]
     y0 += np.eye(len(x0)) * step_size
     
-    res = [delayed(objective)(row, args[0]) for row in y0]
+    res = [delayed(loss)(row, *args) for row in y0]
     
         
     def difference(yold, ynew):
@@ -112,10 +115,12 @@ def majorana_loss(
 
     transformed_hamiltonian = svd_transformation(
         energies, wave_functions, reference_wave_functions
-    )
+    )/40e-6
 
     desired = np.abs(transformed_hamiltonian[0, 1])
-    undesired = np.linalg.norm(transformed_hamiltonian[2:])
+    undesired = np.linalg.norm(transformed_hamiltonian[2:], ord=1)
+    
+    print(desired, undesired)
 
     return -desired + undesired
 
