@@ -11,7 +11,7 @@ import collections
 from alphashape import alphashape
 import matplotlib.pyplot as plt
 
-sys.path.append(os.path.realpath("./../spin-qubit/"))
+sys.path.append(os.path.realpath("/home/tinkerer/spin-qubit/"))
 from utility import wannier_basis
 
 # https://stackoverflow.com/a/3233356
@@ -86,6 +86,7 @@ def projected_operator(operator, eigenstates):
 
     return projected_operator
 
+
 def order_wavefunctions(pair):
     # shuffle the wavwfunctions based on the Majorana pairs to be optimized
     pair_indices = majorana_pair_indices[pair].copy()
@@ -137,80 +138,48 @@ def _closest_node(node, nodes):
     return np.argmin(dist)
 
 
-def dep_acc_index(
-    poisson_system, kwant_sites, site_indices: np.ndarray, nw_centers: dict, pair: str, plot_points=False
+def dep_acc_indexes(
+    gates_dict, centers_dict, kwant_sites, angle, a=10e-9, shift=2
 ):
-
-    """Return indices from the poisson system grid corresponding to regions that
-    needs to de depleted according to the desired majorana pair
     """
+    Parameters
+    ----------
+    gates_dict: dict
+        Dictionary with gate names as key and vertices as values
+    centers_dict: dict
+        Dictionary with the position of the nanowires from `gate_coords`
+    kwant_sites: nd.array
+        Array containg positoons of kwant sites in proper order
+    angle: float
+        Angle of the trijunction arms
+    a: float
+        Lattice constant
+    shift: float
+        How deep we go into the channels
 
-    dep_indices = {}
-    acc_indices = {}
+    Returns
+    -------
+    dict with structure name as key and index on the kwant system as value
+    """
+    centroids = {}
+    # centroids of the gates
+    for gate_name, gate_pos in gates_dict:
+        x = gate_pos.T[0]
+        y = gate_pos.T[1]
+        centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
+        centroids[gate_name] = centroid * a
 
-    voltage_regions = poisson_system.regions.voltage.tag_points
-    grid_points = poisson_system.grid.points
-
-    dep_regions = np.array(
-        list(
-            filter(
-                None,
-                [
-                    x if x.split("_")[0] not in ["global", "dirichlet"] else None
-                    for x in voltage_regions.keys()
-                ],
-            )
-        )
+    # positions along the channels
+    centroids["right"] = a * (
+        centers_dict["left"] + shift * np.array([np.sin(angle), np.cos(angle)])
     )
+    centroids["left"] = centers_dict["right"] * a + shift * a * np.array(
+        [-np.sin(angle), np.cos(angle)]
+    )
+    centroids["top"] = centers_dict["top"] * a - shift * a * np.array([0, 1])
 
-    twodeg_grid = site_indices
+    # get indexes in the kwant system
+    for key, val in centroids.items():
+        centroids[key] = _closest_node(val, kwant_sites)
 
-    for gate in dep_regions:
-        indices = voltage_regions[gate]
-        points = np.unique(grid_points[indices][:, [0, 1]], axis=0)
-        center = list(alphashape(points, alpha=0.01).centroid.coords)[0]
-
-        closest_coord_index = _closest_node(
-            center,
-            kwant_sites,  ## Orthogonal projection of a gate coordinate to 2DEG
-        )
-        dep_indices[gate] = [closest_coord_index]
-
-
-    depletion = {}
-    for gate in set(["left", "right", "top"]) - set(pair.split("-")):
-        closest_coord_index = _closest_node(
-            nw_centers[gate], kwant_sites
-        )
-        depletion[gate] = [closest_coord_index]
-
-    accumulation = {}
-    for gate in pair.split("-"):
-        closest_coord_index = _closest_node(
-            nw_centers[gate], kwant_sites
-        )
-        accumulation[gate] = [closest_coord_index]
-
-    for x in dep_regions:
-        depletion[x] = dep_indices[x]
-        
-    if plot_points:
-        site_coords = grid_points[site_indices]
-        for index in np.hstack(list(accumulation.values())):
-            point = kwant_sites[index]
-            print(point)
-            plt.scatter(point[0], point[1], c='b')
-
-        for index in np.hstack(list(depletion.values())):
-            point = kwant_sites[index]
-            print(point)
-            plt.scatter(point[0], point[1], c = 'r')
-
-        for key, value in voltage_regions.items():
-            if not key.startswith(('global', 'dirichlet')):
-                coords = grid_points[value]
-                plt.scatter(coords[:, 0], coords[:, 1], s = 0.1)
-        
-
-    return depletion, accumulation
-
+    return centroids
