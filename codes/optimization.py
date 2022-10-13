@@ -26,16 +26,12 @@ def loss(x, *argv):
     pair = argv[0]
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
-    pot = argv[3]
 
-    print(x)
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
     elif isinstance(x, float):
         new_parameter = phase_pairs(pair, x * np.pi)
-
-    # print(new_parameter)
 
     params.update(new_parameter)
 
@@ -46,11 +42,10 @@ def loss(x, *argv):
     # Uncomment this in case of soft-thresholding
     cost = 0
     if isinstance(x, (list, np.ndarray)):
-        potential_shape = soft_threshold(
+        potential_shape_loss = soft_threshold(
             linear_ham, params["dep_index"], params["acc_index"], params["mus_nw"][0]
         )
-        # if (np.abs(potential_shape) > 0) + pot:
-        cost += np.abs(potential_shape)
+        cost += np.abs(potential_shape_loss)
 
     cost += majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
 
@@ -131,13 +126,12 @@ def majorana_loss(
     )
 
     transformed_hamiltonian = (
-        svd_transformation(energies, wave_functions, reference_wave_functions) / 40e-6
+        svd_transformation(energies, wave_functions, reference_wave_functions)
     )
 
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:], ord=1)
 
-    print(desired, undesired)
 
     return -desired + undesired
 
