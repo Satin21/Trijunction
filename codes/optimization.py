@@ -16,6 +16,7 @@ from Hamiltonian import discrete_system_coordinates
 from utility import gather_data
 from dask import delayed
 
+
 def loss(x, *argv):
     """
     x: either list or scalar (float)
@@ -26,34 +27,35 @@ def loss(x, *argv):
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
     pot = argv[3]
-    
+
     print(x)
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
     elif isinstance(x, float):
         new_parameter = phase_pairs(pair, x * np.pi)
-        
+
     # print(new_parameter)
 
     params.update(new_parameter)
-    
-    linear_ham, numerical_hamiltonian = hamiltonian(kwant_system, linear_terms, f_params, **params)
-    
+
+    linear_ham, numerical_hamiltonian = hamiltonian(
+        kwant_system, linear_terms, f_params, **params
+    )
+
     # Uncomment this in case of soft-thresholding
     cost = 0
     if isinstance(x, (list, np.ndarray)):
-        potential_shape = soft_threshold(linear_ham, 
-                                         params['dep_index'],
-                                         params['acc_index'],
-                                         params['mus_nw'][0]
-                                        )
+        potential_shape = soft_threshold(
+            linear_ham, params["dep_index"], params["acc_index"], params["mus_nw"][0]
+        )
         # if (np.abs(potential_shape) > 0) + pot:
         cost += np.abs(potential_shape)
-    
+
     cost += majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
 
     return cost
+
 
 def jacobian(x0, *args):
 
@@ -62,29 +64,44 @@ def jacobian(x0, *args):
     y0 = [x0] * len(x0)
     step_size = args[-1]
     y0 += np.eye(len(x0)) * step_size
-    
+
     res = [delayed(loss)(row, *args) for row in y0]
-    
-        
+
     def difference(yold, ynew):
         return (ynew - yold) / step_size
-    
+
     output = delayed(loss)(initial, res)
-    
+
     return output.compute()
 
 
+def soft_threshold(indices, linear_ham, pair, mu=bands[0]):
+    """
+    Parameters
+    ----------
+    indices: dict
+        dictionary coming from `dep_acc_indices`
+    linear_terms: ndarray
+        reduced diagonal of voltage matrix
+    pair: ndarray
+        array with names of the channels to connect
+    mu: float
+        reference chemical potential
 
-def soft_threshold(ham, dep_index:dict, acc_index:dict, mu:float):
+    Returns
+    -------
+    loss function of shape
+    """
     loss = 0
-    for index in np.hstack(list(dep_index.values())):
-        diff = ham[4*index, 4*index] - mu
-        loss += diff if diff < 0 else 0
 
-    for index in np.hstack(list(acc_index.values())):
-        diff = ham[4*index, 4*index] - mu
-        loss += diff if diff > 0 else 0
-    
+    for gate, index in indices.items():
+        diff = np.abs(linear_ham[index]) - bands[0]
+        if gate in pair:
+            if diff > 0:
+                loss += diff
+        else:
+            if diff < 0:
+                loss += diff
     return loss
 
 
@@ -113,13 +130,13 @@ def majorana_loss(
         return_eigenvectors=True,
     )
 
-    transformed_hamiltonian = svd_transformation(
-        energies, wave_functions, reference_wave_functions
-    )/40e-6
+    transformed_hamiltonian = (
+        svd_transformation(energies, wave_functions, reference_wave_functions) / 40e-6
+    )
 
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:], ord=1)
-    
+
     print(desired, undesired)
 
     return -desired + undesired
