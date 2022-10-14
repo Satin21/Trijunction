@@ -43,13 +43,16 @@ def loss(x, *argv):
     cost = 0
     if isinstance(x, (list, np.ndarray)):
         potential_shape_loss = soft_threshold(
-            linear_ham, params["dep_index"], params["acc_index"], params["mus_nw"][0]
+            params['dep_acc_index'],
+            linear_ham.diagonal()[::4], # 4 due to spin and particle-hole degrees of freedom.
+            pair.split('-'),
+            params["mus_nw"][0]
         )
         cost += np.abs(potential_shape_loss)
 
     cost += majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
 
-    return cost
+    return np.abs(potential_shape_loss), cost
 
 
 def jacobian(x0, *args):
@@ -90,7 +93,7 @@ def soft_threshold(indices, linear_ham, pair, mu=bands[0]):
     loss = 0
 
     for gate, index in indices.items():
-        diff = np.abs(linear_ham[index]) - bands[0]
+        diff = np.real(linear_ham[index]) - mu
         if gate in pair:
             if diff > 0:
                 loss += diff
