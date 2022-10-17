@@ -19,9 +19,23 @@ from dask import delayed
 
 def loss(x, *argv):
     """
+    Loss function used to optimise the coupling between pairs of MBSs.
+    It van be used to optimize volateges or phases.
+    Parameters
+    ----------
     x: either list or scalar (float)
         list when optimizing voltages and float when optimizing phases
-
+    argv: argument for the loss functions
+        pair: str
+            describes the pair to be coupled
+        params: dict
+            contains parameters for the hamiltonian, voltages, and dep_acc_index
+        kwant_system, f_params, linear_terms, reference_wave_functions: tuple
+            contains parameters required for `majorana_loss`
+    Returns
+    -------
+    shape_loss: `soft_threshold` if it is not zero
+    majorana_loss: if `soft_threshold` is zero
     """
     pair = argv[0]
     params = argv[1]
@@ -42,7 +56,7 @@ def loss(x, *argv):
     if isinstance(x, (list, np.ndarray)):
         potential_shape_loss = soft_threshold(
             params['dep_acc_index'],
-            linear_ham.diagonal()[::4], # 4 due to spin and particle-hole degrees of freedom.
+            linear_ham.diagonal()[::4],  # 4 due to spin and particle-hole degrees of freedom.
             pair.split('-'),
             bands[0]
         )
