@@ -61,7 +61,7 @@ def loss(x, *argv):
             params['dep_acc_index'],
             numerical_hamiltonian.diagonal()[::4], # 4 due to spin and particle-hole degrees of freedom.
             pair.split('-'),
-            params["mus_nw"][0]
+            bands[0]
         )
         
         
