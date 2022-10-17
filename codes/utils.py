@@ -158,8 +158,8 @@ def ratio_Gaussian_curvature(x:np.ndarray,
     return np.min(curvature)/np.max(curvature)
 
 
-def dep_acc_indexes(
-    gates_dict, centers_dict, kwant_sites, angle, a=10e-9, shift=2
+def dep_acc_index(
+    gates_dict, centers_dict, kwant_sites, angle, a=10e-9, shift=2, npts=5
 ):
     """
     Parameters
@@ -176,30 +176,43 @@ def dep_acc_indexes(
         Lattice constant
     shift: float
         How deep we go into the channels
+    n_pts: int
+        Number of points along each channel
 
     Returns
     -------
     dict with structure name as key and index on the kwant system as value
     """
     centroids = {}
+    sides = ['left', 'right', 'top']
     # centroids of the gates
     for gate_name, gate_pos in gates_dict:
         x = gate_pos.T[0]
         y = gate_pos.T[1]
         centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
         centroids[gate_name] = centroid * a
+    
+    x = shift * np.array(
+        [
+            [np.sin(angle), np.cos(angle)],
+            [-np.sin(angle), np.cos(angle)],
+            [0, -1]
+        ]
+    )
 
-    # positions along the channels
-    centroids["right"] = a * (
-        centers_dict["left"] + shift * np.array([np.sin(angle), np.cos(angle)])
-    )
-    centroids["left"] = centers_dict["right"] * a + shift * a * np.array(
-        [-np.sin(angle), np.cos(angle)]
-    )
-    centroids["top"] = centers_dict["top"] * a - shift * a * np.array([0, 1])
+    vector_shift = np.mgrid[0:3, 0:npts, 0:2] 
+    vector_shift = a * vector_shift[1] 
+
+    for i, side in enumerate(sides):
+        centroids[f"{side}"] = a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * x[i]
 
     # get indexes in the kwant system
-    for key, val in centroids.items():
-        centroids[key] = _closest_node(val, kwant_sites)
+    for key, val in centroids.copy().items():
+        if key in sides:
+            for i in range(npts):
+                centroids[f'{key}{i}'] = _closest_node(val[i], kwant_sites)
+            centroids.pop(key)
+        else:
+            centroids[key] = _closest_node(val, kwant_sites)
 
     return centroids
