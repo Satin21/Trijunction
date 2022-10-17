@@ -7,7 +7,7 @@ import kwant
 sys.path.append("/home/tinkerer/spin-qubit/")
 
 from codes.tools import hamiltonian
-from codes.constants import scale, majorana_pair_indices, voltage_keys, bands
+from codes.constants import scale, majorana_pair_indices, voltage_keys, bands, topological_gap
 from codes.parameters import junction_parameters, dict_update, phase_pairs, voltage_dict
 from codes.utils import wannierize, svd_transformation, eigsh
 
@@ -19,27 +19,15 @@ from dask import delayed
 
 def loss(x, *argv):
     """
-    Loss function used to optimise the coupling between pairs of MBSs.
-    It van be used to optimize volateges or phases.
-    Parameters
-    ----------
     x: either list or scalar (float)
         list when optimizing voltages and float when optimizing phases
-    argv: argument for the loss functions
-        pair: str
-            describes the pair to be coupled
-        params: dict
-            contains parameters for the hamiltonian, voltages, and dep_acc_index
-        kwant_system, f_params, linear_terms, reference_wave_functions: tuple
-            contains parameters required for `majorana_loss`
-    Returns
-    -------
-    shape_loss: `soft_threshold` if it is not zero
-    majorana_loss: if `soft_threshold` is zero
+
     """
+    print(x)
     pair = argv[0]
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
+
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
@@ -53,17 +41,23 @@ def loss(x, *argv):
     )
 
     # Uncomment this in case of soft-thresholding
+    cost = 0
     if isinstance(x, (list, np.ndarray)):
         potential_shape_loss = soft_threshold(
             params['dep_acc_index'],
-            linear_ham.diagonal()[::4],  # 4 due to spin and particle-hole degrees of freedom.
+            numerical_hamiltonian.diagonal()[::4], # 4 due to spin and particle-hole degrees of freedom.
             pair.split('-'),
-            bands[0]
+            params["mus_nw"][0]
         )
-        if potential_shape_loss:
-            return potential_shape_loss
+        
+        
+        cost += np.abs(potential_shape_loss)
+        
+    cost += majorana_loss(numerical_hamiltonian, 
+                          reference_wave_functions, 
+                          kwant_system)/topological_gap
 
-    return majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
+    return cost
 
 
 def jacobian(x0, *args):
@@ -130,9 +124,11 @@ def soft_threshold(indices, linear_ham, pair, mu=bands[0]):
     loss function of shape
     """
     loss = 0
+    
+    # loss = {}
 
     for gate, index in indices.items():
-        diff = linear_ham[index] - bands[0]
+        diff = np.real(linear_ham[index]) - mu
 
         if gate[:-1] in pair:
             if diff > 0:
@@ -175,7 +171,8 @@ def majorana_loss(
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:], ord=1)
 
-
+    print(desired, undesired)
+    
     return -desired + undesired
 
 

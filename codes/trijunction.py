@@ -13,6 +13,7 @@ from codes.parameters import (
     junction_parameters,
     pair_voltages,
     phase_pairs,
+    bands,
 )
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem

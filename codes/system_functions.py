@@ -4,16 +4,15 @@ from kwant.builder import FiniteSystem
 from scipy.sparse._coo import coo_matrix
 from scipy.sparse._csr import csr_matrix
 
-def adaptive_two_parameters(
-    xy, keys, params, trijunction, linear_terms, f_params=None
-):
+
+def adaptive_two_parameters(xy, keys, params, trijunction, linear_terms, f_params=None):
     """
     Sample N parameters in the trijunction Hamiltonian.
     The parameters to be sampled are defined in `keys`.
     One can sample both voltages and hamiltonian parameters
     simultaneously. In case one of those is fixed, the matrix can
     be passed as an argument for `trijuction` or `linear_terms`.
-    
+
     Parameters
     ----------
     xy: tuple
@@ -79,7 +78,6 @@ def diagonalisation(
         )
     else:
         linear_ham = linear_terms
-        
 
     if isinstance(trijunction, FiniteSystem):
         num_ham = trijunction.hamiltonian_submatrix(

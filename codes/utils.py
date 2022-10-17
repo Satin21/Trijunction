@@ -137,25 +137,26 @@ def _closest_node(node, nodes):
     dist = np.sum((nodes - node) ** 2, axis=1)
     return np.argmin(dist)
 
-def ratio_Gaussian_curvature(x:np.ndarray,
-                   step:float,
-                  ):
+
+def ratio_Gaussian_curvature(
+    x: np.ndarray,
+    step: float,
+):
     """
-    Ratio of minimum to maximum Gaussian curvature of a 
-    function 
-    
-    wavefunction: ndarray 
-    
+    Ratio of minimum to maximum Gaussian curvature of a
+    function
+
+    wavefunction: ndarray
+
     step: float
-    Grid spacing of the finite difference approximation. 
+    Grid spacing of the finite difference approximation.
     Ideally the lattice constant in the case of a kwant system
-    
+
     """
-    hessian = np.array(np.gradient(np.gradient(x, step), 
-                                   step, axis=[1, 2]))
+    hessian = np.array(np.gradient(np.gradient(x, step), step, axis=[1, 2]))
     curvature = np.linalg.det(hessian.transpose([2, 3, 0, 1]))[2:-2, 2:-2]
-    
-    return np.min(curvature)/np.max(curvature)
+
+    return np.min(curvature) / np.max(curvature)
 
 
 def dep_acc_index(
@@ -184,33 +185,31 @@ def dep_acc_index(
     dict with structure name as key and index on the kwant system as value
     """
     centroids = {}
-    sides = ['left', 'right', 'top']
+    sides = ["left", "right", "top"]
     # centroids of the gates
     for gate_name, gate_pos in gates_dict:
         x = gate_pos.T[0]
         y = gate_pos.T[1]
         centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
         centroids[gate_name] = centroid * a
-    
+
     x = shift * np.array(
-        [
-            [np.sin(angle), np.cos(angle)],
-            [-np.sin(angle), np.cos(angle)],
-            [0, -1]
-        ]
+        [[np.sin(angle), np.cos(angle)], [-np.sin(angle), np.cos(angle)], [0, -1]]
     )
 
-    vector_shift = np.mgrid[0:3, 0:npts, 0:2] 
-    vector_shift = a * vector_shift[1] 
+    vector_shift = np.mgrid[0:3, 0:npts, 0:2]
+    vector_shift = a * vector_shift[1]
 
     for i, side in enumerate(sides):
-        centroids[f"{side}"] = a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * x[i]
+        centroids[f"{side}"] = (
+            a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * x[i]
+        )
 
     # get indexes in the kwant system
     for key, val in centroids.copy().items():
         if key in sides:
             for i in range(npts):
-                centroids[f'{key}{i}'] = _closest_node(val[i], kwant_sites)
+                centroids[f"{key}{i}"] = _closest_node(val[i], kwant_sites)
             centroids.pop(key)
         else:
             centroids[key] = _closest_node(val, kwant_sites)

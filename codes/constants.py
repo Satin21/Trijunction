@@ -5,7 +5,7 @@ pairs = ["left-right", "left-top", "right-top"]
 majorana_pair_indices = dict(zip(pairs, [[0, 1], [0, 2], [1, 2]]))
 
 topological_gap = 6.8e-5
-    
+
 voltage_keys = {
     "left_1": 0,
     "left_2": 0,

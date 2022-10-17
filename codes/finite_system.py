@@ -133,7 +133,7 @@ def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
         "centers": [
             nw_centers["left"] * a,
             nw_centers["right"] * a,
-            nw_centers["top"] * a + shift * a, # shift top center to the far end 
+            nw_centers["top"] * a + shift * a,  # shift top center to the far end
         ],
     }
 
