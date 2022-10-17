@@ -29,7 +29,7 @@ class Trijunction:
     Class wrapping all objects associated to a trijunction
     """
 
-    def __init__(self, config, optimize_phase_pairs=['left-right']):
+    def __init__(self, config, optimize_phase_pairs=["left-right"]):
         """
         Initialisation requires only a `config` dictionary.
         """
@@ -125,16 +125,16 @@ class Trijunction:
         flat_potential = dict(
             zip(
                 ta.array(self.site_coords[:, [0, 1]] - self.offset),
-                np.zeros(len(self.site_coords)),
+                np.ones(len(self.site_coords)) * value,
             )
         )
         return flat_potential
 
-    def optimal_phases(self, voltages=(-3.0e-3, -3.0e-3, -3.0e-3, 3e-3), depleted=-7.0e-3):
+    def optimal_phases(
+        self, voltages=(-3.0e-3, -3.0e-3, -3.0e-3, 3e-3), depleted=-7.0e-3
+    ):
         self.optimal_phases = {}
-        voltages = pair_voltages(
-            initial=voltages, depleted=depleted
-        )
+        voltages = pair_voltages(initial=voltages, depleted=depleted)
 
         for pair in self.optimize_phase_pairs:
             self.base_params.update(voltages[pair])
@@ -144,7 +144,7 @@ class Trijunction:
 
             sol = minimize_scalar(loss, args=opt_args, bounds=(0, 2), method="bounded")
 
-            self.optimal_phases[pair] = phase_pairs(pair, np.pi*sol.x)
+            self.optimal_phases[pair] = phase_pairs(pair, np.pi * sol.x)
 
     def potential(self, voltage_list, charges={}):
         """
