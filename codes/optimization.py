@@ -27,7 +27,6 @@ def loss(x, *argv):
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
 
-
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
     elif isinstance(x, float):
@@ -40,19 +39,17 @@ def loss(x, *argv):
     )
 
     # Uncomment this in case of soft-thresholding
-    cost = 0
     if isinstance(x, (list, np.ndarray)):
         potential_shape_loss = soft_threshold(
             params['dep_acc_index'],
             linear_ham.diagonal()[::4], # 4 due to spin and particle-hole degrees of freedom.
             pair.split('-'),
-            params["mus_nw"][0]
+            bands[0]
         )
-        cost += np.abs(potential_shape_loss)
+        if potential_shape_loss:
+            return potential_shape_loss
 
-    cost += majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
-
-    return np.abs(potential_shape_loss), cost
+    return majorana_loss(numerical_hamiltonian, reference_wave_functions, kwant_system)
 
 
 def jacobian(x0, *args):
