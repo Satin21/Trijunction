@@ -19,11 +19,25 @@ from dask import delayed
 
 def loss(x, *argv):
     """
-    x: either list or scalar (float)
-        list when optimizing voltages and float when optimizing phases
-
+        Loss function used to optimise the coupling between pairs of MBSs.
+        It can be used to optimize volateges or phases.
+        Parameters
+        ----------
+        x: either list or scalar (float)
+            list when optimizing voltages and float when optimizing phases
+        argv: argument for the loss functions
+            pair: str
+                describes the pair to be coupled
+            params: dict
+                contains parameters for the hamiltonian, voltages, and dep_acc_index
+            kwant_system, f_params, linear_terms, reference_wave_functions: tuple
+                contains parameters required for `majorana_loss`
+        Returns
+        -------
+        shape_loss: `soft_threshold` if it is not zero
+        majorana_loss: if `soft_threshold` is zero
     """
-    print(x)
+
     pair = argv[0]
     params = argv[1]
     kwant_system, f_params, linear_terms, reference_wave_functions = argv[2]
