@@ -73,6 +73,34 @@ def jacobian(x0, *args):
     return output.compute()
 
 
+def shape_loss(x, *argv):
+    """
+    Function to optimize the shape of the potential using
+    the soft threshold.
+
+    Parameters
+    ----------
+    x: list of 4 voltages to optimize
+    """
+
+    linear_terms = argv[0]
+    indices = argv[1]
+    pair = argv[2]
+
+    voltages = voltage_dict(x)
+
+    linear_ham = sum(
+            [voltages[key] * linear_terms[key] for key in linear_terms.keys()]
+        )
+    linear_ham = linear_ham.diagonal()[::4]
+
+    potential_shape_loss = soft_threshold(
+        indices, linear_ham, pair
+    )
+
+    return 1e-3 * np.abs(potential_shape_loss)
+
+
 def soft_threshold(indices, linear_ham, pair, mu=bands[0]):
     """
     Parameters
@@ -93,8 +121,9 @@ def soft_threshold(indices, linear_ham, pair, mu=bands[0]):
     loss = 0
 
     for gate, index in indices.items():
-        diff = np.real(linear_ham[index]) - mu
-        if gate in pair:
+        diff = linear_ham[index] - bands[0]
+
+        if gate[:-1] in pair:
             if diff > 0:
                 loss += diff
         else:
