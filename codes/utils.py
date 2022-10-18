@@ -160,7 +160,7 @@ def ratio_Gaussian_curvature(
 
 
 def dep_acc_index(
-    gates_dict, centers_dict, kwant_sites, angle, a=10e-9, shift=2, npts=5
+    gates_dict, centers_dict, kwant_sites, angle, a=10e-9, shift=2, spacing=2, npts=5
 ):
     """
     Parameters
@@ -175,7 +175,9 @@ def dep_acc_index(
         Angle of the trijunction arms
     a: float
         Lattice constant
-    shift: float
+    shift: int
+        No. of unit cells to shift away from the edges of the scattering region
+    spacing: float
         How deep we go into the channels
     n_pts: int
         Number of points along each channel
@@ -193,14 +195,18 @@ def dep_acc_index(
         centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
         centroids[gate_name] = centroid * a
 
-    x = shift * np.array(
+    x = spacing * np.array(
         [[np.sin(angle), np.cos(angle)], [-np.sin(angle), np.cos(angle)], [0, -1]]
     )
+    
+    
+    vector_shift = np.mgrid[0:3, shift:npts+shift, 0:2]
 
-    vector_shift = np.mgrid[0:3, 0:npts, 0:2]
     vector_shift = a * vector_shift[1]
-
+    
+    
     for i, side in enumerate(sides):
+        
         centroids[f"{side}"] = (
             a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * x[i]
         )

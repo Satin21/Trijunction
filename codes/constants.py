@@ -1,6 +1,7 @@
 scale = 10e-9
 
 pairs = ["left-right", "left-top", "right-top"]
+sides = ["left", "right", "top"]
 
 majorana_pair_indices = dict(zip(pairs, [[0, 1], [0, 2], [1, 2]]))
 

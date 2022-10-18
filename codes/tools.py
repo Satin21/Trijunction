@@ -3,6 +3,7 @@ import numpy as np
 import tinyarray as ta
 from tqdm import tqdm
 from codes.parameters import junction_parameters
+from scipy.sparse._coo import coo_matrix
 
 sys.path.append(os.path.realpath("/home/tinkerer/spin-qubit/"))
 from potential import gate_potential
@@ -81,7 +82,7 @@ def linear_Hamiltonian(
 def hamiltonian(
     kwant_system,
     linear_terms,
-    params_fn: callable,
+    params_fn = None,
     **params,
 ):
     """
@@ -102,10 +103,13 @@ def hamiltonian(
     numerical_hamiltonian
     """
     summed_ham = sum([params[key] * linear_terms[key] for key in linear_terms.keys()])
-
-    base_ham = kwant_system.hamiltonian_submatrix(
-        sparse=True, params=params_fn(**params)
-    )
+    
+    if isinstance(kwant_system, coo_matrix):
+        base_ham = kwant_system
+    else:
+        base_ham = kwant_system.hamiltonian_submatrix(
+            sparse=True, params=params_fn(**params)
+        )
 
     numerical_hamiltonian = base_ham + summed_ham
 
