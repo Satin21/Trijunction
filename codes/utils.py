@@ -198,15 +198,13 @@ def dep_acc_index(
     x = spacing * np.array(
         [[np.sin(angle), np.cos(angle)], [-np.sin(angle), np.cos(angle)], [0, -1]]
     )
-    
-    
-    vector_shift = np.mgrid[0:3, shift:npts+shift, 0:2]
+
+    vector_shift = np.mgrid[0:3, shift : npts + shift, 0:2]
 
     vector_shift = a * vector_shift[1]
-    
-    
+
     for i, side in enumerate(sides):
-        
+
         centroids[f"{side}"] = (
             a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * x[i]
         )

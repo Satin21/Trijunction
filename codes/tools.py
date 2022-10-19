@@ -82,7 +82,7 @@ def linear_Hamiltonian(
 def hamiltonian(
     kwant_system,
     linear_terms,
-    params_fn = None,
+    params_fn=None,
     **params,
 ):
     """
@@ -103,7 +103,7 @@ def hamiltonian(
     numerical_hamiltonian
     """
     summed_ham = sum([params[key] * linear_terms[key] for key in linear_terms.keys()])
-    
+
     if isinstance(kwant_system, coo_matrix):
         base_ham = kwant_system
     else:
