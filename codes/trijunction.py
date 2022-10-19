@@ -55,9 +55,9 @@ class Trijunction:
         self.optimize_phase_pairs = optimize_phase_pairs
 
         self.dep_acc_indices()
-        self.optimal_voltages = {}
 
         if len(optimize_phase_pairs):
+            self.voltage_initial_conditions()
             self.optimal_phases()
             self.optimal_base_hams = {}
             for pair in self.optimize_phase_pairs:
@@ -158,8 +158,37 @@ class Trijunction:
             )
 
             self.optimal_phases[pair] = phase_pairs(pair, np.pi * phase_sol.x)
+        
+    def voltage_initial_conditions(self):
+        """
+        Find initial condition for the voltages based on the soft-threshold.
+        """
+        self.initial_conditions = {}
+
+        for pair in self.optimize_phase_pairs:
+            opt_args = tuple(
+                [
+                    pair.split("-"),
+                    (self.base_ham, self.linear_terms, self.densityoperator),
+                    self.indices,
+                ]
+            )
+            vol_sol = minimize(
+                soft_threshold_loss,
+                x0=(-1.5e-3, -1.5e-3, -1.5e-3, 3e-3),
+                args=opt_args,
+                method="trust-constr",
+                options={
+                    "initial_tr_radius": 1e-3,
+                },
+            )
+            if vol_sol.success:
+                self.initial_conditions[pair] = vol_sol.x
 
     def dep_acc_indices(self, indices=None):
+        """
+        Calculate the indexes of sites along the depletion and accumulation regions.
+        """
         if not indices:
             self.indices = dep_acc_index(
                 zip(self.gate_names, self.gates_vertex),
