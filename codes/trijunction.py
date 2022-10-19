@@ -126,6 +126,9 @@ class Trijunction:
         )
 
     def flat_potential(self, value=0):
+        """
+        Dictionary with a flat potential in the scattering region.
+        """
         flat_potential = dict(
             zip(
                 ta.array(self.site_coords[:, [0, 1]] - self.offset),
@@ -134,11 +137,13 @@ class Trijunction:
         )
         return flat_potential
 
-    def optimal_phases(
+    def optimize_phases(
         self, voltages=(-3.0e-3, -3.0e-3, -3.0e-3, 3e-3), depleted=-7.0e-3
     ):
+        """
+        Find phase at which coupling is maximum for each pair.
+        """
         self.optimal_phases = {}
-        voltages = pair_voltages(initial=voltages, depleted=depleted)
 
         for pair in self.optimize_phase_pairs:
             opt_args = tuple(
