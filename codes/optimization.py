@@ -46,7 +46,7 @@ def loss(x, *argv):
 
     pair = argv[0]
     params = argv[1]
-    system, density_operator, f_params, linear_terms, reference_wave_functions = argv[2]
+    system, linear_terms, f_params, density_operator, reference_wave_functions = argv[2]
 
     if isinstance(x, (list, np.ndarray)):
         new_parameter = voltage_dict(x)
@@ -59,10 +59,9 @@ def loss(x, *argv):
     cost = 0
     if isinstance(x, (list, np.ndarray)):
         args = (
-            (system, linear_terms),
-            density_operator,
-            params["dep_acc_index"],
             pair.split("-"),
+            (system, linear_terms, density_operator),
+            params["dep_acc_index"],
         )
         potential_shape_loss = soft_threshold_loss(x, *args)
 
@@ -87,30 +86,28 @@ def soft_threshold_loss(x, *argv):
 
     argv: tuple
     arguments required for soft thresholding such as
-    ((base hamiltonian, linear ham), kwant density operator, indices:dict, coupled pair:list)
+    (coupled pair:list, (base hamiltonian, linear ham, kwant density operator), indices:dict)
 
     Returns
     -------
     loss: float
 
     """
+    print(x)
 
-    base_hamiltonian, linear_terms = argv[0]
-    density_operator = argv[1]
+    pair = argv[0]
+    system, linear_terms, density_operator = argv[1]
     indices = argv[2]
-    pair = argv[3]
 
     voltages = voltage_dict(x)
 
-    linear_ham, full_hamiltonian = hamiltonian(
-        base_hamiltonian, linear_terms, **voltages
-    )
+    linear_ham, full_hamiltonian = hamiltonian(system, linear_terms, **voltages)
     linear_ham = linear_ham.diagonal()[::4]
     potential_shape_loss = shape_loss(indices, linear_ham, pair)
 
     if potential_shape_loss < 1e-9:
         evals, evecs = eigsh(full_hamiltonian, k=6, sigma=0, return_eigenvectors=True)
-        return wavefunction_loss(density_operator(evecs[:, -1]), indices, pair)
+        return wavefunction_loss(evecs, density_operator, indices, pair)
     return potential_shape_loss
 
 
@@ -147,7 +144,7 @@ def shape_loss(indices, linear_ham, pair, mu=bands[0]):
     return np.abs(loss)
 
 
-def wavefunction_loss(wfs, indices, pair, ci=50):
+def wavefunction_loss(wfs, densityoperator, indices, pair, ci=50):
     """
     Soft-thresholding with wavefunction
 
@@ -155,6 +152,8 @@ def wavefunction_loss(wfs, indices, pair, ci=50):
     -----
     wfs: nx1 array
     Wavefunction
+
+    densityoperator: kwant operator
 
     indices: dict
     Values are the indices corresponding to the position at which the and wavefunction probability is evaluated.
@@ -173,18 +172,29 @@ def wavefunction_loss(wfs, indices, pair, ci=50):
     loss: float
     """
 
-    gain = dict.fromkeys(pair, [])
-    for gate, index in indices.items():
-        if gate[:-1] in pair:
-            a = gain[gate[:-1]].copy()
-            a.append(np.abs(wfs[index]))
-            gain.update({gate[:-1]: a})
-    sum_gain = np.sum(list(gain.values()), axis=1)
+    def return_gain(pair, index, wf):
+        gain = dict.fromkeys(pair, [])
+        for gate, ind in index.items():
+            if gate[:-1] in pair:
+                a = gain[gate[:-1]].copy()
+                a.append(np.abs(wf[ind]))
+                gain.update({gate[:-1]: a})
+        return gain
+
+    gain = np.vstack(
+        [
+            list(return_gain(pair, indices, densityoperator(wfs[:, i])).values())
+            for i in range(3)
+        ]
+    )
+    gain = [np.sum(gain[0::2], axis=0), np.sum(gain[1::2], axis=0)]
+    sum_gain = np.sum(gain, axis=1)
+
     if np.all(sum_gain > 1e-5) and (
         (1 - ci / 100) < sum_gain[0] / sum_gain[1] < (1 + ci / 100)
     ):
         return -1
-    return -(sum(sum_gain)) + np.sum(np.diff(list(gain.values()), axis=0))
+    return -(sum(sum_gain)) + np.sum(np.diff(gain, axis=0))
 
 
 def majorana_loss(numerical_hamiltonian, reference_wave_functions):

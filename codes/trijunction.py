@@ -3,11 +3,11 @@ import numpy as np
 import sys
 import tinyarray as ta
 from collections import OrderedDict
-from scipy.optimize import minimize_scalar
+from scipy.optimize import minimize_scalar, minimize
 
 from codes.constants import scale, pairs
 from codes.tools import linear_Hamiltonian
-from codes.utils import eigsh, wannierize
+from codes.utils import eigsh, wannierize, dep_acc_index
 from codes.parameters import (
     voltage_dict,
     junction_parameters,
@@ -18,7 +18,7 @@ from codes.parameters import (
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
-from codes.optimization import loss
+from codes.optimization import loss, soft_threshold_loss
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance
@@ -53,6 +53,9 @@ class Trijunction:
         self.create_base_matrices()
         self.generate_wannier_basis([-7.0e-3, -6.8e-3, -7.0e-3, 3e-3])
         self.optimize_phase_pairs = optimize_phase_pairs
+
+        self.dep_acc_indices()
+        self.optimal_voltages = {}
 
         if len(optimize_phase_pairs):
             self.optimal_phases()
@@ -138,14 +141,48 @@ class Trijunction:
         voltages = pair_voltages(initial=voltages, depleted=depleted)
 
         for pair in self.optimize_phase_pairs:
-            self.base_params.update(voltages[pair])
+            opt_args = tuple(
+                [
+                    pair.split("-"),
+                    (self.base_ham, self.linear_terms, self.densityoperator),
+                    self.indices,
+                ]
+            )
+            vol_sol = minimize(
+                soft_threshold_loss,
+                x0=list(voltages[pair].values()),
+                args=opt_args,
+                method="trust-constr",
+                options={
+                    "initial_tr_radius": 1e-3,
+                },
+            )
+            self.optimal_voltages[pair] = voltage_dict(vol_sol.x)
+
+            self.base_params.update(self.optimal_voltages[pair])
             opt_args = tuple(
                 [pair, self.base_params, list(self.optimiser_arguments().values())]
             )
 
-            sol = minimize_scalar(loss, args=opt_args, bounds=(0, 2), method="bounded")
+            phase_sol = minimize_scalar(
+                loss, args=opt_args, bounds=(0, 2), method="bounded"
+            )
 
-            self.optimal_phases[pair] = phase_pairs(pair, np.pi * sol.x)
+            self.optimal_phases[pair] = phase_pairs(pair, np.pi * phase_sol.x)
+
+    def dep_acc_indices(self, indices=None):
+        if not indices:
+            self.indices = dep_acc_index(
+                zip(self.gate_names, self.gates_vertex),
+                self.nw_centers,
+                [site.pos for site in self.trijunction.sites],
+                self.config["gate"]["angle"],
+                shift=3,
+                spacing=3,
+                npts=5,
+            )
+        else:
+            self.indices = indices
 
     def potential(self, voltage_list, charges={}):
         """
@@ -199,8 +236,9 @@ class Trijunction:
         """
         return OrderedDict(
             kwant_system=self.trijunction,
-            kwant_params_fn=self.f_params,
             linear_terms=self.linear_terms,
+            kwant_params_fn=self.f_params,
+            density_operator=self.densityoperator,
             mlwf=self.mlwf,
         )
 
