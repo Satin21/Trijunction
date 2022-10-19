@@ -7,7 +7,7 @@ from scipy.optimize import minimize_scalar, minimize
 
 from codes.constants import scale, pairs
 from codes.tools import linear_Hamiltonian
-from codes.utils import eigsh, wannierize, dep_acc_index
+from codes.utils import eigsh, wannierize, dep_acc_index, order_wavefunctions
 from codes.parameters import (
     voltage_dict,
     junction_parameters,
@@ -148,20 +148,9 @@ class Trijunction:
                     self.indices,
                 ]
             )
-            vol_sol = minimize(
-                soft_threshold_loss,
-                x0=list(voltages[pair].values()),
-                args=opt_args,
-                method="trust-constr",
-                options={
-                    "initial_tr_radius": 1e-3,
-                },
-            )
-            self.optimal_voltages[pair] = voltage_dict(vol_sol.x)
-
-            self.base_params.update(self.optimal_voltages[pair])
+            self.base_params.update(voltage_dict(self.initial_conditions[pair]))
             opt_args = tuple(
-                [pair, self.base_params, list(self.optimiser_arguments().values())]
+                [pair, self.base_params, list(self.optimiser_arguments(pair).values())]
             )
 
             phase_sol = minimize_scalar(
@@ -230,16 +219,21 @@ class Trijunction:
         # check orthogonality again
         assert np.allclose(self.mlwf @ self.mlwf.T.conj(), np.eye(len(self.mlwf)))
 
-    def optimiser_arguments(self):
+    def optimiser_arguments(self, pair):
         """
-        Organise the arguments for `optimization.loss` method
+        Organise the arguments for `optimization.loss` method.
+
+        Parameters
+        ----------
+        pair: str
+            Determines the order of the mlwf
         """
         return OrderedDict(
             kwant_system=self.trijunction,
             linear_terms=self.linear_terms,
             kwant_params_fn=self.f_params,
             density_operator=self.densityoperator,
-            mlwf=self.mlwf,
+            mlwf=self.mlwf[order_wavefunctions(pair)],
         )
 
     def check_symmetry(self, voltages_list):
