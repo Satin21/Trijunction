@@ -58,7 +58,7 @@ class Trijunction:
 
         if len(optimize_phase_pairs):
             self.voltage_initial_conditions()
-            self.optimal_phases()
+            self.optimize_phases()
             self.optimal_base_hams = {}
             for pair in self.optimize_phase_pairs:
                 self.base_params.update(self.optimal_phases[pair])
@@ -180,7 +180,7 @@ class Trijunction:
             )
             vol_sol = minimize(
                 soft_threshold_loss,
-                x0=(-1.5e-3, -1.5e-3, -1.5e-3, 3e-3),
+                x0=(-3e-3, -3e-3, -3e-3, 8e-3),
                 args=opt_args,
                 method="trust-constr",
                 options={
@@ -206,21 +206,6 @@ class Trijunction:
             )
         else:
             self.indices = indices
-
-    def potential(self, voltage_list, charges={}):
-        """
-        Wrap potential function to require only voltages
-        """
-        voltages = voltage_dict(voltage_list)
-        return gate_potential(
-            self.poisson_system,
-            self.linear_problem,
-            self.site_coords[:, [0, 1]],
-            self.site_indices,
-            voltages,
-            charges,
-            offset=self.offset,
-        )
 
     def generate_wannier_basis(self, voltage_list):
         """
