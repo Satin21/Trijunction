@@ -18,7 +18,7 @@ from codes.parameters import (
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
-from codes.optimization import loss, soft_threshold_loss
+from codes.optimization import loss, shape_loss
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance
@@ -137,6 +137,7 @@ class Trijunction:
         )
         return flat_potential
 
+
     def optimize_phases(
         self, voltages=(-3.0e-3, -3.0e-3, -3.0e-3, 3e-3), depleted=-7.0e-3
     ):
@@ -178,15 +179,20 @@ class Trijunction:
                     self.indices,
                 ]
             )
+            print('optimize voltage')
             vol_sol = minimize(
                 soft_threshold_loss,
+
                 x0=(-3e-3, -3e-3, -3e-3, 8e-3),
+
                 args=opt_args,
                 method="trust-constr",
                 options={
                     "initial_tr_radius": 1e-3,
+                    "verbose":2
                 },
             )
+
             if vol_sol.success:
                 self.initial_conditions[pair] = vol_sol.x
 

@@ -134,8 +134,16 @@ def _closest_node(node, nodes):
     Euclidean distance between a node and array of nodes
     """
     nodes = np.asarray(nodes)
-    dist = np.sum((nodes - node) ** 2, axis=1)
-    return np.argmin(dist)
+    dist = np.sum((nodes - node)**2, axis=1)
+    closest = np.where(dist == dist.min())[0]
+    # Previously we used np.argmin which returns the indices corresponding to the first occurrence in case of multiple occurrences of the minimum values. So we changed to np.where. Though we need to choose the extreme nodes no matter x < 0 or X > 0.
+    if len(closest) == 2:
+        nns = nodes[closest]
+        if np.all(nns[:, 0] < 0):
+            return closest[0]
+        else:
+            return closest[-1]
+    return closest[0]
 
 
 def ratio_Gaussian_curvature(
@@ -208,7 +216,7 @@ def dep_acc_index(
         centroids[f"{side}"] = (
             a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * x[i]
         )
-
+    
     # get indexes in the kwant system
     for key, val in centroids.copy().items():
         if key in sides:
