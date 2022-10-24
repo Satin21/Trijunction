@@ -1,8 +1,5 @@
-from typing import Dict, Tuple
 from codes.utils import eigsh
 from kwant.builder import FiniteSystem
-from scipy.sparse._coo import coo_matrix
-from scipy.sparse._csr import csr_matrix
 
 
 def adaptive_two_parameters(xy, keys, params, trijunction, linear_terms, f_params=None):
