@@ -1,9 +1,9 @@
 scale = 10e-9
 
-pairs = ["left-right", "left-top", "right-top"]
+pairs = ["right-top", "left-top", "left-right"]
 sides = ["left", "right", "top"]
 
-majorana_pair_indices = dict(zip(pairs, [[0, 1], [0, 2], [1, 2]]))
+majorana_pair_indices = dict(zip(pairs, [[1, 2], [0, 2], [0, 1]]))
 
 topological_gap = 6.8e-5
 
@@ -27,3 +27,5 @@ bands = [
     0.056639121540223145,
     0.06384851757360771,
 ]
+
+default = {'rhobeg': 1e-3}
