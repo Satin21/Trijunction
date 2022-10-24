@@ -3,9 +3,10 @@ import numpy as np
 import sys
 import tinyarray as ta
 from collections import OrderedDict
+from copy import copy
 from scipy.optimize import minimize_scalar, minimize
 
-from codes.constants import scale, pairs
+from codes.constants import scale, pairs, default
 from codes.tools import linear_Hamiltonian
 from codes.utils import eigsh, wannierize, dep_acc_index, order_wavefunctions
 from codes.parameters import (
@@ -18,7 +19,7 @@ from codes.parameters import (
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
-from codes.optimization import loss, shape_loss
+from codes.optimization import loss, shape_loss, soft_threshold_loss
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance
@@ -137,26 +138,23 @@ class Trijunction:
         )
         return flat_potential
 
-
-    def optimize_phases(
-        self, voltages=(-3.0e-3, -3.0e-3, -3.0e-3, 3e-3), depleted=-7.0e-3
-    ):
+    def optimize_phases(self):
         """
         Find phase at which coupling is maximum for each pair.
         """
         self.optimal_phases = {}
 
         for pair in self.optimize_phase_pairs:
+
+            self.base_params.update(
+                voltage_dict(self.initial_conditions[pair])
+            )
             opt_args = tuple(
                 [
-                    pair.split("-"),
-                    (self.base_ham, self.linear_terms, self.densityoperator),
-                    self.indices,
+                    pair,
+                    self.base_params,
+                    list(self.optimiser_arguments(pair).values())
                 ]
-            )
-            self.base_params.update(voltage_dict(self.initial_conditions[pair]))
-            opt_args = tuple(
-                [pair, self.base_params, list(self.optimiser_arguments(pair).values())]
             )
 
             phase_sol = minimize_scalar(
@@ -164,37 +162,17 @@ class Trijunction:
             )
 
             self.optimal_phases[pair] = phase_pairs(pair, np.pi * phase_sol.x)
-        
-    def voltage_initial_conditions(self):
+
+    def voltage_initial_conditions(self, guess=(-3e-3, -3e-3, -3e-3, 10e-3)):
         """
         Find initial condition for the voltages based on the soft-threshold.
         """
-        self.initial_conditions = {}
-
-        for pair in self.optimize_phase_pairs:
-            opt_args = tuple(
-                [
-                    pair.split("-"),
-                    (self.base_ham, self.linear_terms, self.densityoperator),
-                    self.indices,
-                ]
-            )
-            print('optimize voltage')
-            vol_sol = minimize(
-                soft_threshold_loss,
-
-                x0=(-3e-3, -3e-3, -3e-3, 8e-3),
-
-                args=opt_args,
-                method="trust-constr",
-                options={
-                    "initial_tr_radius": 1e-3,
-                    "verbose":2
-                },
-            )
-
-            if vol_sol.success:
-                self.initial_conditions[pair] = vol_sol.x
+        initial_conditions = {}
+        for i, pair in enumerate(pairs):
+            x = list(copy(guess))
+            x[i] = -10e-3
+            initial_conditions[pair] = x
+        self.initial_conditions = initial_conditions
 
     def dep_acc_indices(self, indices=None):
         """
