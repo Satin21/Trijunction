@@ -3,7 +3,7 @@
     {"thickness":
         {"dielectric": 3.0, "twoDEG": 2, "gates": 2, "substrate": 5},
     "grid_spacing":
-        {"twoDEG": 0.5, "normal": 1, "dielectric": 1, "air": 5, "gate": 0.5, "substrate": 1},
+        {"twoDEG": 1, "normal": 1, "dielectric": 1, "air": 5, "gate": 1, "substrate": 1},
     "permittivity":
         {"metal": 5000, "twoDEG": 15, "air": 1.0, "Al2O3": 9.1, "substrate": 16}},
 "gate":
