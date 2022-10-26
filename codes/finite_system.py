@@ -45,7 +45,11 @@ def finite_system(**geometry):
             for i in range(3):
                 x0, y0 = centers[i]
 
-                if -w / 2 - x0 < x < w / 2 - x0:
+                if (
+                    x0 - w / 2 - (scale * geometry["grid_spacing"] / 2)
+                    <= x
+                    <= x0 + w / 2 + (scale * geometry["grid_spacing"] / 2)
+                ):
                     if y0 - l <= y <= y0:
                         return mu[i]
             return 0
@@ -60,7 +64,7 @@ def finite_system(**geometry):
 
         def system(x, y):
 
-            if -W / 2 < x < W / 2 and 0 <= y < L:
+            if -W / 2 < x < W / 2 and 0 <= y <= L:
                 f = get_potential(scattering_potential)
             else:
                 f = wires(mu=mus_nw)
@@ -92,7 +96,7 @@ def finite_system(**geometry):
 
         def rectangle(site):
             x, y = site.pos
-            if (-W / 2 < x < W / 2 and 0 <= y < L) or wires()(x, y):
+            if (-W / 2 < x < W / 2 and 0 <= y <= L) or wires()(x, y):
                 return True
 
         junction = kwant.Builder()

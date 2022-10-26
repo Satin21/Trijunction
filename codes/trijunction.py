@@ -138,7 +138,9 @@ class Trijunction:
         )
         return flat_potential
 
+
     def optimize_phases(self):
+
         """
         Find phase at which coupling is maximum for each pair.
         """
@@ -173,6 +175,7 @@ class Trijunction:
             x[i] = -10e-3
             initial_conditions[pair] = x
         self.initial_conditions = initial_conditions
+
 
     def dep_acc_indices(self, indices=None):
         """

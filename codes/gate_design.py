@@ -136,7 +136,7 @@ def gate_coords(config):
     channel_center = OrderedDict(
         left=np.hstack(tail),
         right=np.hstack(tail * -1),
-        top=np.hstack([0, L + head[1]]),
+        top=np.hstack([0, max(top_1[:, 1])]),
     )
 
     return gates_vertex, gate_names, boundaries, channel_center
