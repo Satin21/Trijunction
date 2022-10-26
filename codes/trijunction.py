@@ -19,7 +19,7 @@ from codes.parameters import (
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
-from codes.optimization import loss, shape_loss, soft_threshold_loss
+from codes.optimization import loss, shape_loss
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance

@@ -47,11 +47,9 @@ def loss(x, *argv):
 
 
     if isinstance(x, (list, np.ndarray)):
-        new_parameter = voltage_dict(x)
+        params.update(voltage_dict(x))
     elif isinstance(x, float):
-        new_parameter = phase_pairs(pair, x * np.pi)
-
-    params.update(new_parameter)
+        params.update(phase_pairs(pair, x * np.pi))
     
     linear_ham, full_hamiltonian = hamiltonian(
             system, linear_terms, f_params, **params
@@ -237,19 +235,19 @@ def wavefunction_loss(x, *argv):
         
     desired = np.vstack(desired)
 
-    desired = [np.sum(desired[0::2], axis=0), 
-               np.sum(desired[1::2], axis=0)
-              ]
-    
-    sum_desired = np.sum(desired, axis = 1)
-    rel_amplitude = sum_desired[0]/sum_desired[1]
-    
-    left_bound = (1-ci/100)
-    right_bound = (1+ci/100)
-    
+    desired = [np.sum(desired[0::2], axis=0), np.sum(desired[1::2], axis=0)]
+
+    sum_desired = np.sum(desired, axis=1)
+    rel_amplitude = sum_desired[0] / sum_desired[1]
+    rel_des_undes = sum(sum_desired)/np.sum(undesired)
+
     # print(sum_desired, np.abs(np.sum(np.diff(desired, axis=0))), np.sum(undesired))
-    
-    if np.all(sum_desired > wf_amp) and (left_bound<rel_amplitude<right_bound):
+    # print(rel_amplitude, rel_des_undes)
+
+    if (np.all(sum_desired > wf_amp) 
+        and (np.abs(1 - rel_amplitude) < ci / 100) 
+        and (np.abs(1 - rel_des_undes) > 1.0)
+       ):
         return -1
     
     return (
@@ -299,7 +297,6 @@ def majorana_loss(
     undesired = np.linalg.norm(transformed_hamiltonian[2:], ord=1)
 
     # print(desired, undesired)
-    
     return -desired + undesired
 
 def jacobian(x0, *args):
