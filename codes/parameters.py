@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.constants import electron_mass, hbar
 from collections.abc import Mapping
-from codes.constants import bands, voltage_keys
+from codes.constants import bands, voltage_keys, pairs
 from collections import OrderedDict
+from copy import copy
 
 
 def voltage_dict(x, dirichlet=True):
@@ -36,6 +37,18 @@ def pair_voltages(initial=(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5e-3):
         initial_condition[pair] = initial_copy
 
     return voltages
+
+
+def voltage_initial_conditions(guess=(-3e-3, -3e-3, -3e-3, 10e-3)):
+    """
+    Find initial condition for the voltages based on the soft-threshold.
+    """
+    initial_conditions = {}
+    for i, pair in enumerate(pairs):
+        x = list(copy(guess))
+        x[i] = -10e-3
+        initial_conditions[pair] = x
+    return initial_conditions
 
 
 def junction_parameters(m_nw=[bands[0]] * 3, bx=0.001):
