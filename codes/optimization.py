@@ -114,11 +114,13 @@ def soft_threshold_loss(x, *argv):
 
     linear_ham, full_hamiltonian = hamiltonian(system, linear_terms, **voltages)
     linear_ham = linear_ham.diagonal()[::4]
-    potential_shape_loss = shape_loss(indices, linear_ham, pair)
+    potential_shape_loss = shape_loss(x, *argv)
 
     if potential_shape_loss < 1e-9:
         evals, evecs = eigsh(full_hamiltonian, k=6, sigma=0, return_eigenvectors=True)
-        return wavefunction_loss(evecs, density_operator, indices, pair)
+        return wavefunction_loss(evecs, *argv)
+
+    return potential_shape_loss
 
 
     
