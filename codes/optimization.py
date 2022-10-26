@@ -117,6 +117,11 @@ def soft_threshold_loss(x, *argv):
     potential_shape_loss = shape_loss(x, *argv)
 
     if potential_shape_loss < 1e-9:
+        argv = (pair,
+                density_operator, 
+                indices,
+                (50, 1e-3)
+               )
         evals, evecs = eigsh(full_hamiltonian, k=6, sigma=0, return_eigenvectors=True)
         return wavefunction_loss(evecs, *argv)
 
@@ -199,7 +204,7 @@ def wavefunction_loss(x, *argv):
     -------
     loss: float
     """
-
+    # unpack arguments
     if len(x.shape) == 1:
 
         system, params, linear_terms, f_params, densityoperator = argv[0]
