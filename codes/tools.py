@@ -2,6 +2,7 @@ import sys, os
 import numpy as np
 import tinyarray as ta
 from tqdm import tqdm
+from kwant.builder import FiniteSystem
 from codes.parameters import junction_parameters
 from scipy.sparse._coo import coo_matrix
 
@@ -102,15 +103,20 @@ def hamiltonian(
     -------
     numerical_hamiltonian
     """
-    summed_ham = sum([params[key] * linear_terms[key] for key in linear_terms.keys()])
+    if isinstance(linear_terms, dict):
+        linear_ham = sum(
+            [params[key] * linear_terms[key] for key in linear_terms.keys()]
+        )
+    else:
+        linear_ham = linear_terms
 
-    if isinstance(kwant_system, coo_matrix):
+    if not isinstance(kwant_system, FiniteSystem):
         base_ham = kwant_system
     else:
         base_ham = kwant_system.hamiltonian_submatrix(
             sparse=True, params=params_fn(**params)
         )
 
-    numerical_hamiltonian = base_ham + summed_ham
+    numerical_hamiltonian = base_ham + linear_ham
 
-    return summed_ham, numerical_hamiltonian
+    return linear_ham, numerical_hamiltonian
