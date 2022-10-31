@@ -28,4 +28,4 @@ bands = [
     0.06384851757360771,
 ]
 
-default = {'rhobeg': 1e-3}
+default = {"rhobeg": 1e-3}
