@@ -24,6 +24,13 @@ from dask import delayed
 from scipy.sparse._coo import coo_matrix
 
 
+def density_particle_hole_spin(wf):
+    density = np.zeros(int(len(wf)/4))
+    for i in range(len(density)):
+        density[i] = np.sum(np.abs(wf[4*i:4*(i+1)]))
+    return density
+
+
 def loss(x, *argv):
     """
     Loss function used to optimise the coupling between pairs of MBSs.
@@ -194,7 +201,7 @@ def wavefunction_loss(x, *argv):
     # unpack arguments
     if len(x.shape) == 1:
 
-        system, params, linear_terms, f_params, densityoperator = argv[0]
+        system, params, linear_terms, f_params = argv[0]
         pair, indices, (ci, wf_amp) = argv[1]
 
         params.update(voltage_dict(x))
@@ -209,10 +216,12 @@ def wavefunction_loss(x, *argv):
         )
 
     else:
-        pair, densityoperator, indices, (ci, wf_amp) = argv
+        pair, indices, (ci, wf_amp) = argv
         wfs = x
 
-    amplitude = lambda i: _amplitude(pair, indices, densityoperator(wfs[:, i]))
+    amplitude = lambda i: _amplitude(
+        pair, indices, density_particle_hole_spin(wfs[:, i])
+    )
 
     desired, undesired = [], []
     for i in range(3):
