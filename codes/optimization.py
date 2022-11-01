@@ -24,10 +24,10 @@ from dask import delayed
 from scipy.sparse._coo import coo_matrix
 
 
-def density_particle_hole_spin(wf):
-    density = np.zeros(int(len(wf)/4))
+def density(wf):
+    density = np.zeros(int(len(wf) / 4))
     for i in range(len(density)):
-        density[i] = np.sum(np.abs(wf[4*i:4*(i+1)]))
+        density[i] = np.sum(np.abs(wf[4 * i : 4 * (i + 1)]))
     return density
 
 
@@ -55,8 +55,8 @@ def loss(x, *argv):
     # print(x)
 
     pair = argv[0]
-    params = argv[1]
-    system, linear_terms, f_params, densityoperator, reference_wavefunctions = argv[2]
+    system, linear_terms, f_params, reference_wavefunctions = argv[1]
+    indices = argv[2]
 
     if isinstance(x, (list, np.ndarray)):
         params.update(voltage_dict(x))
@@ -76,7 +76,7 @@ def loss(x, *argv):
     cost = 0
     if isinstance(x, (list, np.ndarray)):
 
-        args = (pair.split("-"), densityoperator, params["dep_acc_index"], (10, 1))
+        args = (pair.split("-"), params["dep_acc_index"], (10, 1))
 
         cost += wavefunction_loss(wavefunctions, *args)
 
@@ -109,7 +109,7 @@ def soft_threshold_loss(x, *argv):
     """
     print(x)
     pair = argv[0]
-    system, linear_terms, density_operator = argv[1]
+    system, linear_terms, (ci, wf_amp) = argv[1]
     indices = argv[2]
 
     voltages = voltage_dict(x)
@@ -148,7 +148,7 @@ def shape_loss(x, *argv):
     # print(x)
 
     pair = argv[0]
-    system, linear_terms = argv[1]
+    system, linear_terms, _ = argv[1]
     indices = argv[2]
 
     voltages = voltage_dict(x)
@@ -219,9 +219,7 @@ def wavefunction_loss(x, *argv):
         pair, indices, (ci, wf_amp) = argv
         wfs = x
 
-    amplitude = lambda i: _amplitude(
-        pair, indices, density_particle_hole_spin(wfs[:, i])
-    )
+    amplitude = lambda i: _amplitude(pair, indices, density(wfs[:, i]))
 
     desired, undesired = [], []
     for i in range(3):
