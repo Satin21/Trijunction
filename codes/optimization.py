@@ -27,7 +27,7 @@ from scipy.sparse._coo import coo_matrix
 def density(wf):
     density = np.zeros(int(len(wf) / 4))
     for i in range(len(density)):
-        density[i] = np.sum(np.abs(wf[4 * i : 4 * (i + 1)]))
+        density[i] = np.sum(np.abs(wf[4 * i : 4 * (i + 1)])**2)
     return density
 
 
