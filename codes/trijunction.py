@@ -79,8 +79,6 @@ class Trijunction:
             self.config, self.boundaries, self.nw_centers, self.scale
         )
 
-        self.densityoperator = kwant.operator.Density(self.trijunction, np.eye(4))
-
     def initialize_poisson(self):
         """
         Create poisson system
@@ -104,7 +102,7 @@ class Trijunction:
         crds = self.site_coords[:, [0, 1]]
         grid_spacing = self.config["device"]["grid_spacing"]["twoDEG"]
         self.offset = crds[0] % grid_spacing
-        self.check_symmetry([-7.0e-3, -7.0e-3, -7.0e-3, 3e-3])
+        # self.check_symmetry([-7.0e-3, -7.0e-3, -7.0e-3, 3e-3])
 
     def create_base_matrices(self):
         """
@@ -132,17 +130,14 @@ class Trijunction:
         """
         Dictionary with a flat potential in the scattering region.
         """
-        flat_potential = dict(
-            zip(
-                ta.array(self.site_coords[:, [0, 1]] - self.offset),
-                np.ones(len(self.site_coords)) * value,
-            )
-        )
-        return flat_potential
-
+        scattering_sites = {}
+        for site in self.trijunction.sites:
+            x, y = site.pos
+            if y >= 0 and y <= self.geometry["s_l"]:
+                scattering_sites[ta.array(np.round(site.pos * 1e8, 3))] = value
+        return scattering_sites
 
     def optimize_phases(self):
-
         """
         Find phase at which coupling is maximum for each pair.
         """
@@ -150,15 +145,9 @@ class Trijunction:
 
         for pair in self.optimize_phase_pairs:
 
-            self.base_params.update(
-                voltage_dict(self.initial_conditions[pair])
-            )
+            self.base_params.update(voltage_dict(self.initial_conditions[pair]))
             opt_args = tuple(
-                [
-                    pair,
-                    self.base_params,
-                    list(self.optimiser_arguments(pair).values())
-                ]
+                [pair, self.base_params, list(self.optimiser_arguments(pair).values())]
             )
 
             phase_sol = minimize_scalar(
@@ -240,7 +229,6 @@ class Trijunction:
             kwant_system=self.trijunction,
             linear_terms=self.linear_terms,
             kwant_params_fn=self.f_params,
-            density_operator=self.densityoperator,
             mlwf=self.mlwf[order_wavefunctions(pair)],
         )
 
