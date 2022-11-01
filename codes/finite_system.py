@@ -45,11 +45,7 @@ def finite_system(**geometry):
             for i in range(3):
                 x0, y0 = centers[i]
 
-                if (
-                    x0 - w / 2 - (scale * geometry["grid_spacing"] / 2)
-                    <= x
-                    <= x0 + w / 2 + (scale * geometry["grid_spacing"] / 2)
-                ):
+                if x0 - w / 2 <= x <= x0 + w / 2:
                     if y0 - l <= y <= y0:
                         return mu[i]
             return 0
@@ -142,7 +138,6 @@ def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
     }
 
     ## Discretized Kwant system
-
     trijunction, f_params = finite_system(**geometry)
     trijunction = trijunction.finalized()
 
