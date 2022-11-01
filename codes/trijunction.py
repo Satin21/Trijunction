@@ -19,7 +19,7 @@ from codes.parameters import (
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
-from codes.optimization import loss, shape_loss
+from codes.optimization import loss, shape_loss, soft_threshold_loss
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance
@@ -31,7 +31,7 @@ class Trijunction:
     Class wrapping all objects associated to a trijunction
     """
 
-    def __init__(self, config, optimize_phase_pairs=["left-right"]):
+    def __init__(self, config, optimize_phase_pairs=["left-right"], solve_poisson=True):
         """
         Initialisation requires only a `config` dictionary.
         """
@@ -46,16 +46,18 @@ class Trijunction:
         ) = gate_coords(self.config)
 
         self.initialize_kwant()
-        self.initialize_poisson()
 
-        self.base_params = junction_parameters()
-        self.base_params.update(potential=self.flat_potential())
+        if solve_poisson:
+            self.initialize_poisson()
 
-        self.create_base_matrices()
-        self.generate_wannier_basis([-7.0e-3, -6.8e-3, -7.0e-3, 3e-3])
-        self.optimize_phase_pairs = optimize_phase_pairs
+            self.base_params = junction_parameters()
+            self.base_params.update(potential=self.flat_potential())
 
-        self.dep_acc_indices()
+            self.create_base_matrices()
+            self.generate_wannier_basis([-7.0e-3, -6.8e-3, -7.0e-3, 3e-3])
+            self.optimize_phase_pairs = optimize_phase_pairs
+
+            self.dep_acc_indices()
 
         if len(optimize_phase_pairs):
             self.voltage_initial_conditions()
