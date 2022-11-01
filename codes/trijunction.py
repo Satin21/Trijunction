@@ -156,17 +156,30 @@ class Trijunction:
 
             self.optimal_phases[pair] = phase_pairs(pair, np.pi * phase_sol.x)
 
-    def voltage_initial_conditions(self, guess=(-3e-3, -3e-3, -3e-3, 10e-3)):
+    def voltage_initial_conditions(
+        self, guess=(-3e-3, -3e-3, -3e-3, 10e-3), ci=10, wf_amp=1
+    ):
         """
         Find initial condition for the voltages based on the soft-threshold.
         """
         initial_conditions = {}
-        for i, pair in enumerate(pairs):
-            x = list(copy(guess))
-            x[i] = -10e-3
-            initial_conditions[pair] = x
-        self.initial_conditions = initial_conditions
+        for pair in self.optimize_phase_pairs:
+            args = (
+                pair.split("-"),
+                (self.base_ham, self.linear_terms, (ci, wf_amp)),
+                self.indices,
+            )
 
+            sol = minimize(
+                fun=soft_threshold_loss,
+                x0=guess,
+                args=args,
+                method="COBYLA",
+                options={"rhobeg": 1e-2},
+            )
+
+            initial_conditions[pair] = sol.x
+        self.initial_conditions = initial_conditions
 
     def dep_acc_indices(self, indices=None):
         """
