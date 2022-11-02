@@ -42,7 +42,7 @@ def gate_coords(config):
     )
 
     def shift(x, adjustment):
-        x = np.array(x.coords)
+        if not isinstance(x, np.ndarray): x = np.array(x.coords)
         x[:, 0] += adjustment
         return x
 
@@ -52,8 +52,8 @@ def gate_coords(config):
     lcoords_p = shift(left, distance_to_axis)
     rcoords = shift(right, distance_to_axis)
     rcoords_p = shift(right, -distance_to_axis)
-    tcoords = shift(top, -channel_width / 2)
-    tcoords_p = shift(top, channel_width / 2)
+    tcoords = shift(top, -distance_to_axis)
+    tcoords_p = shift(top, distance_to_axis)
 
     intersection = list(
         LineString(lcoords_p).intersection(LineString(rcoords_p)).coords
@@ -103,7 +103,9 @@ def gate_coords(config):
     )
 
     top, bottom = list(gates[1].difference(splitter.buffer(gap / 2)).geoms)
-
+    
+    grid_spacing = config['device']['grid_spacing']['gate']
+    
     left_1 = np.round(np.array(bottom.exterior.coords))
     top_1 = np.round(np.array(top.exterior.coords))
     top_2 = top_1.copy() @ [[-1, 0], [0, 1]]
@@ -121,7 +123,7 @@ def gate_coords(config):
     right_1 = left_2.copy() @ [[-1, 0], [0, 1]]
 
     gates_vertex = [left_1, left_2, right_1, right_2, top_1, top_2]
-
+    
     gate_names = ["left_1", "left_2", "right_1", "right_2", "top_1", "top_2"]
     assert min(left_1[:, 0]) == min(top_1[:, 0])
     assert max(right_2[:, 0]) == max(top_2[:, 0])
@@ -139,4 +141,17 @@ def gate_coords(config):
         top=np.hstack([0, max(top_1[:, 1])]),
     )
 
-    return gates_vertex, gate_names, boundaries, channel_center
+    return (gates_vertex, 
+            gate_names,
+            boundaries,
+            channel_center)
+
+
+def consistent_grid(coords, grid_spacing):
+    """
+    Avoid numerical errors due to very small decimal values in the grid coords those are inconsistent with the
+    grid spacing.
+    """
+    if np.any(coords % grid_spacing):
+        coords -= coords % grid_spacing
+    return coords

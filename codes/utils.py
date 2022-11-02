@@ -8,7 +8,6 @@ import kwant
 import kwant.linalg.mumps as mumps
 from scipy.sparse import identity
 import collections
-from alphashape import alphashape
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.realpath("/home/tinkerer/spin-qubit/"))
@@ -196,14 +195,8 @@ def dep_acc_index(
     """
     centroids = {}
     sides = ["left", "right", "top"]
-    # centroids of the gates
-    for gate_name, gate_pos in gates_dict:
-        x = gate_pos.T[0]
-        y = gate_pos.T[1]
-        centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
-        centroids[gate_name] = centroid * a
 
-    x = spacing * np.array(
+    rotation = spacing * np.array(
         [[np.sin(angle), np.cos(angle)], [-np.sin(angle), np.cos(angle)], [0, -1]]
     )
 
@@ -211,19 +204,41 @@ def dep_acc_index(
 
     vector_shift = a * vector_shift[1]
 
+
     for i, side in enumerate(sides):
 
         centroids[f"{side}"] = (
-            a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * x[i]
+            a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * rotation[i]
         )
-
+    
+    pts = int(npts/2/2)
+    vector_shift = a * np.mgrid[0:3, -pts : pts, 0:2][1]
+    rotation = spacing * np.array(
+        [[np.sin(angle), np.cos(angle)], [-np.sin(angle), np.cos(angle)], [0, -1]]
+    )
+    pts = vector_shift[0].shape[0]
+    
+    # centroids of the gates
+    shift_index = [0, 0, 1, 1, 2, 2]
+    for i, (gate_name, gate_pos) in enumerate(gates_dict):
+        x = gate_pos.T[0][:-1] #-1 because the first and last vertex in gate_vertices are the same. 
+        y = gate_pos.T[1][:-1] # and we avoid counting them twice by not considering the last vertex.
+        centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
+        centroids[gate_name] = (
+            a * centroid
+        )
+        # centroids[gate_name] = (
+        #     a * centroid * np.ones((pts, 2)) +  vector_shift[shift_index[i]] * rotation[shift_index[i]]
+        # )
+        
+    
     # get indexes in the kwant system
     for key, val in centroids.copy().items():
         if key in sides:
-            for i in range(npts):
-                centroids[f"{key}{i}"] = _closest_node(val[i], kwant_sites)
-            centroids.pop(key)
+            centroids[f"{key}"] = [_closest_node(val[i], kwant_sites) for i in range(npts)]
+            # centroids.pop(key)
         else:
-            centroids[key] = _closest_node(val, kwant_sites)
+            centroids[f"{key}"] = [_closest_node(val, kwant_sites)]
+            # centroids.pop(key)
 
     return centroids

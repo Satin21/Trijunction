@@ -47,8 +47,8 @@ def finite_system(**geometry):
 
                 if (
                     x0 - w / 2 - (scale * geometry["grid_spacing"] / 2)
-                    < x
-                    < x0 + w / 2
+                    <= x
+                    <= x0 + w / 2 + (scale * geometry["grid_spacing"] / 2)
                 ):
                     if y0 - l <= y <= y0:
                         return mu[i]
@@ -142,6 +142,7 @@ def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
     }
 
     ## Discretized Kwant system
+
     trijunction, f_params = finite_system(**geometry)
     trijunction = trijunction.finalized()
 
@@ -156,3 +157,4 @@ def get_potential(potential):
         return potential[ta.array(np.round(np.array([x, y]) / scale, rounding_limit))]
 
     return f
+

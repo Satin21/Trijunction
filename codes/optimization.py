@@ -1,19 +1,15 @@
 import numpy as np
 import sys, os
 import kwant
+import json
 
 # sys.path.append(os.path.realpath('./../spin-qubit/'))
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 
 from codes.tools import hamiltonian
-from codes.constants import (
-    scale,
-    majorana_pair_indices,
-    voltage_keys,
-    bands,
-    topological_gap,
-)
+
+from codes.constants import scale, majorana_pair_indices, voltage_keys, bands, topological_gap, sides
 from codes.parameters import junction_parameters, dict_update, phase_pairs, voltage_dict
 from codes.utils import wannierize, svd_transformation, eigsh
 
@@ -52,40 +48,98 @@ def loss(x, *argv):
     majorana_loss: if `soft_threshold` is zero
     """
 
-    # print(x)
 
     pair = argv[0]
+    params = argv[1]
     system, linear_terms, f_params, reference_wavefunctions = argv[1]
-    indices = argv[2]
+
+
 
     if isinstance(x, (list, np.ndarray)):
         params.update(voltage_dict(x))
     elif isinstance(x, float):
         params.update(phase_pairs(pair, x * np.pi))
 
-    linear_ham, full_hamiltonian = hamiltonian(system, linear_terms, f_params, **params)
-
+    
+    linear_ham, full_hamiltonian = hamiltonian(
+            system, linear_terms, f_params, **params
+        )
+    
     energies, wavefunctions = eigsh(
-        full_hamiltonian.tocsc(),
-        len(reference_wavefunctions),
-        sigma=0,
-        return_eigenvectors=True,
-    )
+            full_hamiltonian.tocsc(),
+            len(reference_wavefunctions),
+            sigma=0,
+            return_eigenvectors=True,
+        )
+    
+    desired, undesired = majorana_loss(energies, 
+                                       wavefunctions, 
+                                       reference_wavefunctions)
+    
+    desired /= topological_gap
+    undesired /= topological_gap
+    print(desired, undesired)
 
     # Uncomment this in case of soft-thresholding
     cost = 0
     if isinstance(x, (list, np.ndarray)):
 
-        args = (pair.split("-"), params["dep_acc_index"], (10, 1))
+        
+        identifier = argv[3] # to identify the sample that we currently optimize. 
+    # It is used to save couplings in a dictionary with the identifier in the filename and check the optimizer status.
+        
+        file = '/home/tinkerer/trijunction-design/codes/'
+        file += 'coupling' + str(identifier) + '.json'
+        
+        # check whether the optimizer is stuck in an optimum for so many iterations
+        # status = optimizer_status(np.round(desired, 2), file=file)
+        # if status == -1:
+        #     return status
+        
+        args = (pair.split('-'),
+                params['dep_acc_index'],
+                (10, 1)
+               )
 
-        cost += wavefunction_loss(wavefunctions, *args)
-
-    cost += (
-        majorana_loss(energies, wavefunctions, reference_wavefunctions)
-        / topological_gap
-    )
+        cost += 1e1* wavefunction_loss(wavefunctions, 
+                                  *args
+                                 )
+    
+    
+    cost += sum([-desired, undesired])
 
     return cost
+
+def optimizer_status(x, 
+                     max_count=50, 
+                     file='/home/tinkerer/trijunction-design/data'
+                    ):
+    """
+    If the optimizer is stuck in the optimum for more than max_count, return -1
+    """
+
+    with open(file, 'rb') as outfile:
+        data = json.load(outfile)
+    
+    x = str(x)
+    key = list(data.keys())
+    if len(key) == 0:
+        # if empty dictionary add no matter what
+        data[x] = 1
+    elif x in data:
+        # if x already exists in data, then increase it count by 1
+        data[x] += 1
+    elif key[0] < x:
+        # if existing key in the dictionary is lower than the current x, replace it with x.
+        del data[key[0]]
+        data[x] = 1
+
+    with open(file , 'w') as outfile:
+        json.dump(data, outfile)
+
+    if list(data.values())[0] > max_count:
+        return -1
+    return 0
 
 
 def soft_threshold_loss(x, *argv):
@@ -158,13 +212,13 @@ def shape_loss(x, *argv):
 
     for gate, index in indices.items():
         diff = np.real(linear_ham[index]) - bands[0]
-        if gate[:-1] in pair:
-            if diff > 0:
-                loss += diff
+        if gate in pair:
+            if np.any(diff > 0):
+                loss += sum(diff[diff > 0])
 
         else:
-            if diff < 0:
-                loss += diff
+            if np.any(diff < 0):
+                loss += sum(diff[diff<0])
 
     return np.abs(loss)
 
@@ -178,7 +232,6 @@ def wavefunction_loss(x, *argv):
     x: nx1 array
     Wavefunction
 
-    densityoperator: kwant operator
 
     indices: dict
     Values are the indices corresponding to the position at which the and wavefunction probability is evaluated.
@@ -198,21 +251,26 @@ def wavefunction_loss(x, *argv):
     """
     # unpack arguments
     if len(x.shape) == 1:
+        # print(x)
 
-        system, params, linear_terms, f_params = argv[0]
+
+        system, params, linear_terms, f_params, reference_wavefunctions = argv[0]
         pair, indices, (ci, wf_amp) = argv[1]
 
         params.update(voltage_dict(x))
 
-        _, full_hamiltonian = hamiltonian(system, linear_terms, f_params, **params)
 
-        _, wfs = eigsh(
-            full_hamiltonian.tocsc(),
-            6,
-            sigma=0,
-            return_eigenvectors=True,
-        )
-
+        _, full_hamiltonian = hamiltonian(
+                system, linear_terms, f_params, **params
+            )
+        
+        energies, wfs = eigsh(
+                full_hamiltonian.tocsc(),
+                6,
+                sigma=0,
+                return_eigenvectors=True,
+            )
+        
     else:
         pair, indices, (ci, wf_amp) = argv
         wfs = x
@@ -227,40 +285,61 @@ def wavefunction_loss(x, *argv):
 
     desired = np.vstack(desired)
 
-    desired = [np.sum(desired[0::2], axis=0), np.sum(desired[1::2], axis=0)]
+    desired = np.array([np.sum(desired[0::2], axis=0), 
+                        np.sum(desired[1::2], axis=0)]
+                      )
 
-    sum_desired = np.sum(desired, axis=1)
+
+    sum_desired = np.abs(np.sum(desired, axis=1))
+    
     rel_amplitude = sum_desired[0] / sum_desired[1]
-    rel_des_undes = sum(sum_desired) / np.sum(undesired)
 
-    # print(sum_desired, np.abs(np.sum(np.diff(desired, axis=0))), np.sum(undesired))
-    # print(rel_amplitude, rel_des_undes)
-
+    rel_des_undes = sum(sum_desired)/np.sum(undesired)
+    
+    
+    uniformity = np.abs(np.sum(np.diff(desired, axis=0)))
+    print(np.hstack(desired), uniformity, undesired)
+    print(rel_amplitude, rel_des_undes)
+    
+    
     if (
-        np.all(sum_desired > wf_amp)
-        and (np.abs(1 - rel_amplitude) < ci / 100)
-        and (np.abs(1 - rel_des_undes) > 1.0)
-    ):
-        return -1
-
+        (np.abs(1 - rel_amplitude) < ci / 100) 
+        and rel_des_undes > 10
+       ):
+        try:
+            desired, _ = majorana_loss(energies,
+                                       wfs, 
+                                       reference_wavefunctions)
+            print(desired)
+            if desired > 1e-6:
+                return -1
+        except (AttributeError, UnboundLocalError):
+            pass
+    
+    
     return (
-        -sum(sum_desired)
-        + np.abs(np.sum(np.diff(desired, axis=0)))
-        + 1e1 * np.sum(undesired)
+        - sum(sum_desired)
+        # - np.sum(desired)
+        + uniformity
+        + 1e1*np.sum(undesired)
     )
 
 
 def _amplitude(pair, index, wf):
     desired = dict.fromkeys(pair, [])
+    depleted_channel = set(sides)-set(pair)
+    depleted = []
     undesired = []
     for gate, ind in index.items():
-        if gate[:-1] in pair:
-            temp = desired[gate[:-1]].copy()
-            temp.append(np.abs(wf[ind]))
-            desired.update({gate[:-1]: temp})
-
+        if gate in pair:
+            desired[gate] = np.abs(wf[ind])
+        elif gate in depleted_channel:
+            depleted.append(np.abs(wf[ind]))
         else:
             undesired.append(np.abs(wf[ind]))
+    ## remove 50% of the depleted channel which is closer to the center
+    undesired += depleted[:int(len(depleted)*50/100)]
+    
     return desired, undesired
 
 
@@ -287,8 +366,7 @@ def majorana_loss(energies, wavefunctions, reference_wavefunctions):
     desired = np.abs(transformed_hamiltonian[0, 1])
     undesired = np.linalg.norm(transformed_hamiltonian[2:], ord=1)
 
-    # print(desired, undesired)
-    return -desired + undesired
+    return desired,  undesired
 
 
 def jacobian(x0, *args):

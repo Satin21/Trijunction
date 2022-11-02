@@ -186,14 +186,20 @@ class Trijunction:
         Calculate the indexes of sites along the depletion and accumulation regions.
         """
         if not indices:
+            L = self.config['gate']['L']
+            gap = self.config['gate']['gap']
+            shift = 1
+            spacing = (self.config["device"]["grid_spacing"]["twoDEG"]*scale)/1e-9
+            npts = np.rint(
+                (L + gap + (spacing - gap % spacing) - (shift*spacing))/spacing).astype(int)
             self.indices = dep_acc_index(
                 zip(self.gate_names, self.gates_vertex),
                 self.nw_centers,
                 [site.pos for site in self.trijunction.sites],
                 self.config["gate"]["angle"],
-                shift=3,
-                spacing=3,
-                npts=5,
+                shift=shift,
+                spacing=spacing,
+                npts=npts,
             )
         else:
             self.indices = indices
