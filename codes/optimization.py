@@ -51,9 +51,9 @@ def loss(x, *argv):
 
     pair = argv[0]
     params = argv[1]
-    system, linear_terms, f_params, reference_wavefunctions = argv[1]
+    system, linear_terms, f_params, reference_wavefunctions = argv[2]
 
-
+    # print(x)
 
     if isinstance(x, (list, np.ndarray)):
         params.update(voltage_dict(x))
@@ -84,18 +84,6 @@ def loss(x, *argv):
     cost = 0
     if isinstance(x, (list, np.ndarray)):
 
-        
-        identifier = argv[3] # to identify the sample that we currently optimize. 
-    # It is used to save couplings in a dictionary with the identifier in the filename and check the optimizer status.
-        
-        file = '/home/tinkerer/trijunction-design/codes/'
-        file += 'coupling' + str(identifier) + '.json'
-        
-        # check whether the optimizer is stuck in an optimum for so many iterations
-        # status = optimizer_status(np.round(desired, 2), file=file)
-        # if status == -1:
-        #     return status
-        
         args = (pair.split('-'),
                 params['dep_acc_index'],
                 (10, 1)
@@ -200,7 +188,7 @@ def shape_loss(x, *argv):
     # print(x)
 
     pair = argv[0]
-    system, linear_terms, _ = argv[1]
+    system, linear_terms = argv[1]
     indices = argv[2]
 
     voltages = voltage_dict(x)
@@ -251,7 +239,7 @@ def wavefunction_loss(x, *argv):
     """
     # unpack arguments
     if len(x.shape) == 1:
-        # print(x)
+        print(x)
 
 
         system, params, linear_terms, f_params, reference_wavefunctions = argv[0]
@@ -277,11 +265,16 @@ def wavefunction_loss(x, *argv):
 
     amplitude = lambda i: _amplitude(pair, indices, density(wfs[:, i]))
 
-    desired, undesired = [], []
+    desired, undes = [], []
     for i in range(3):
-        des, undes = amplitude(i)
-        desired.append(list(des.values()))
-        undesired.append(undes)
+        x, y = amplitude(i)
+        desired.append(list(x.values()))
+        undes.append(y)
+        
+    
+    undesired = dict.fromkeys(undes[0].keys(), 0.0)
+    for key, _ in undes[0].items(): 
+        for i in range(3): undesired[key] += undes[i][key]
 
     desired = np.vstack(desired)
 
@@ -293,52 +286,54 @@ def wavefunction_loss(x, *argv):
     sum_desired = np.abs(np.sum(desired, axis=1))
     
     rel_amplitude = sum_desired[0] / sum_desired[1]
+    
 
-    rel_des_undes = sum(sum_desired)/np.sum(undesired)
+    rel_des_undes = []
+    for i, gate in enumerate(pair):
+        rel_des_undes.append([sum_desired[i]/undesired[gate + '_' + str(j+1)] for j in range(2)])
     
-    
+    undesired = list(undesired.values())
     uniformity = np.abs(np.sum(np.diff(desired, axis=0)))
-    print(np.hstack(desired), uniformity, undesired)
-    print(rel_amplitude, rel_des_undes)
+
     
+    # print(sum_desired, np.sum(np.hstack(undesired)), rel_amplitude, np.hstack(rel_des_undes))
     
     if (
-        (np.abs(1 - rel_amplitude) < ci / 100) 
-        and rel_des_undes > 10
+        (np.abs(1 - np.sum(rel_amplitude)) < ci / 100) 
+        and np.all(np.hstack(rel_des_undes) > 10)
        ):
         try:
-            desired, _ = majorana_loss(energies,
-                                       wfs, 
-                                       reference_wavefunctions)
-            print(desired)
-            if desired > 1e-6:
+            desired_coupling, _ = majorana_loss(energies,
+                                                wfs, 
+                                                reference_wavefunctions
+                                               )
+            if desired_coupling>(topological_gap*5/100):
                 return -1
         except (AttributeError, UnboundLocalError):
             pass
-    
+
     
     return (
         - sum(sum_desired)
-        # - np.sum(desired)
         + uniformity
-        + 1e1*np.sum(undesired)
+        + 1e1*np.sum(np.hstack(undesired))
     )
 
 
 def _amplitude(pair, index, wf):
     desired = dict.fromkeys(pair, [])
     depleted_channel = set(sides)-set(pair)
-    depleted = []
-    undesired = []
+    undesired = {}
     for gate, ind in index.items():
         if gate in pair:
             desired[gate] = np.abs(wf[ind])
         elif gate in depleted_channel:
-            depleted.append(np.abs(wf[ind]))
+            x = np.abs(wf[ind])
+            undesired[list(depleted_channel)[0]] = x[:int(len(x)*50/100)]
         else:
-            undesired.append(np.abs(wf[ind]))
+            undesired[gate] = np.abs(wf[ind]) # underneath the gates
     ## remove 50% of the depleted channel which is closer to the center
-    undesired += depleted[:int(len(depleted)*50/100)]
+    
     
     return desired, undesired
 
