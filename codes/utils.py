@@ -145,27 +145,6 @@ def _closest_node(node, nodes):
     return closest[0]
 
 
-def ratio_Gaussian_curvature(
-    x: np.ndarray,
-    step: float,
-):
-    """
-    Ratio of minimum to maximum Gaussian curvature of a
-    function
-
-    wavefunction: ndarray
-
-    step: float
-    Grid spacing of the finite difference approximation.
-    Ideally the lattice constant in the case of a kwant system
-
-    """
-    hessian = np.array(np.gradient(np.gradient(x, step), step, axis=[1, 2]))
-    curvature = np.linalg.det(hessian.transpose([2, 3, 0, 1]))[2:-2, 2:-2]
-
-    return np.min(curvature) / np.max(curvature)
-
-
 def dep_acc_index(
     gates_dict, centers_dict, kwant_sites, angle, a=10e-9, shift=2, spacing=2, npts=5
 ):

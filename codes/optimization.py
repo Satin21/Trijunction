@@ -290,7 +290,7 @@ def wavefunction_loss(x, *argv):
                       )
 
 
-    sum_desired = np.abs(np.sum(desired, axis=1))
+    sum_desired = np.sum(np.abs(desired, axis=1))
     
     rel_amplitude = sum_desired[0] / sum_desired[1]
     
@@ -300,7 +300,7 @@ def wavefunction_loss(x, *argv):
         rel_des_undes.append([sum_desired[i]/undesired[gate + '_' + str(j+1)] for j in range(2)])
     
     undesired = list(undesired.values())
-    uniformity = np.abs(np.sum(np.diff(desired, axis=0)))
+    uniformity = np.sum(np.abs(np.diff(desired, axis=0)))
     
     
     if (

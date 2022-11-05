@@ -47,26 +47,15 @@ class Trijunction:
         ) = gate_coords(self.config)
 
         self.initialize_kwant()
-
+        
         if solve_poisson:
             self.initialize_poisson()
-
+            
             self.base_params = junction_parameters()
-            
-            ## Check whether all the nanowires has equal width and topological gap
-            self.base_params.update(potential=self.flat_potential(-1))
-            ham = self.trijunction.hamiltonian_submatrix(
-                sparse=True, params=self.f_params(**self.base_params)
-            )
-            evals, evecs = eigsh(ham, k=6, sigma=0, return_eigenvectors=True)
-            assert np.all(evals[:3] - evals[:3][0] < 1e-14)
-            
             self.base_params.update(potential=self.flat_potential())
-
             self.create_base_matrices()
             self.generate_wannier_basis([-7.0e-3, -6.8e-3, -7.0e-3, 3e-3])
             self.optimize_phase_pairs = optimize_phase_pairs
-
             self.dep_acc_indices()
 
         if len(optimize_phase_pairs):
@@ -79,6 +68,11 @@ class Trijunction:
                     sparse=True, params=self.f_params(**self.base_params)
                 )
                 self.optimal_base_hams[pair] = ham
+                
+        self.compute_topological_gap()
+        # This step cannot be done ahead of generating Wannier basis.
+        # Otherwise, it results in assertion error for some reason when checking whether the 
+        # eigenstates are orthogonal. TODO.
 
     def initialize_kwant(self):
         """
@@ -260,6 +254,18 @@ class Trijunction:
             kwant_params_fn=self.f_params,
             mlwf=self.mlwf[order_wavefunctions(pair)],
         )
+    
+    def compute_topological_gap(self):
+        ## Check whether all the nanowires has equal width and topological gap
+        ## If not, most probably the kwant system is built wrongly.
+        base_params = junction_parameters()
+        base_params.update(potential=self.flat_potential(2))
+        ham = self.trijunction.hamiltonian_submatrix(
+            sparse=True, params=self.f_params(**base_params)
+        )
+        evals, evecs = eigsh(ham, k=20, sigma=0, return_eigenvectors=True)
+        assert np.all(evals[10:13] - evals[10:13][0] < 1e-14) # 10, 11, 12 are MBS
+        self.topological_gap = evals[14]
 
     def check_symmetry(self, voltages_list):
         """
