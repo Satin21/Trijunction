@@ -52,6 +52,15 @@ class Trijunction:
             self.initialize_poisson()
 
             self.base_params = junction_parameters()
+            
+            ## Check whether all the nanowires has equal width and topological gap
+            self.base_params.update(potential=self.flat_potential(-1))
+            ham = self.trijunction.hamiltonian_submatrix(
+                sparse=True, params=self.f_params(**self.base_params)
+            )
+            evals, evecs = eigsh(ham, k=6, sigma=0, return_eigenvectors=True)
+            assert np.all(evals[:3] - evals[:3][0] < 1e-14)
+            
             self.base_params.update(potential=self.flat_potential())
 
             self.create_base_matrices()
