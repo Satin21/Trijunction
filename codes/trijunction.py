@@ -102,7 +102,7 @@ class Trijunction:
         crds = self.site_coords[:, [0, 1]]
         grid_spacing = self.config["device"]["grid_spacing"]["twoDEG"]
         self.offset = crds[0] % grid_spacing
-        # self.check_symmetry([-7.0e-3, -7.0e-3, -7.0e-3, 3e-3])
+        self.check_symmetry([-7.0e-3, -7.0e-3, -7.0e-3, 3e-3])
 
     def create_base_matrices(self):
         """
@@ -134,7 +134,7 @@ class Trijunction:
         for site in self.trijunction.sites:
             x, y = site.pos
             if y >= 0 and y <= self.geometry["s_l"]:
-                scattering_sites[ta.array(np.round(site.pos * 1e8, 3))] = value
+                scattering_sites[ta.array(np.round(site.pos * scale, 3))] = value
         return scattering_sites
 
     def optimize_phases(self):

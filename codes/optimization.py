@@ -199,16 +199,18 @@ def shape_loss(x, *argv):
     loss = 0.0
 
     for gate, index in indices.items():
-        diff = np.real(linear_ham[index]) - bands[0]
+        diff = np.real(linear_ham[index])
         if gate in pair:
             if np.any(diff > 0):
-                loss += sum(diff[diff > 0])
+                loss += sum(np.abs(diff[diff > 0]))
 
         else:
             if np.any(diff < 0):
-                loss += sum(diff[diff<0])
+                loss += sum(np.abs(diff[diff < 0]))
+    # print(loss)
+    return loss
 
-    return np.abs(loss)
+
 
 
 def wavefunction_loss(x, *argv):
@@ -240,13 +242,16 @@ def wavefunction_loss(x, *argv):
     # unpack arguments
     if len(x.shape) == 1:
         print(x)
-
+        
+        
 
         system, params, linear_terms, f_params, reference_wavefunctions = argv[0]
-        pair, indices, (ci, wf_amp) = argv[1]
+        pair, ci, wf_amp = argv[1]
+        
+        indices = params['dep_acc_index']
 
         params.update(voltage_dict(x))
-
+        
 
         _, full_hamiltonian = hamiltonian(
                 system, linear_terms, f_params, **params
@@ -262,19 +267,21 @@ def wavefunction_loss(x, *argv):
     else:
         pair, indices, (ci, wf_amp) = argv
         wfs = x
-
+    
+    
+    
     amplitude = lambda i: _amplitude(pair, indices, density(wfs[:, i]))
 
     desired, undes = [], []
     for i in range(3):
-        x, y = amplitude(i)
-        desired.append(list(x.values()))
-        undes.append(y)
+        a, b = amplitude(i)
+        desired.append(list(a.values()))
+        undes.append(b)
         
-    
     undesired = dict.fromkeys(undes[0].keys(), 0.0)
     for key, _ in undes[0].items(): 
         for i in range(3): undesired[key] += undes[i][key]
+
 
     desired = np.vstack(desired)
 
@@ -294,9 +301,7 @@ def wavefunction_loss(x, *argv):
     
     undesired = list(undesired.values())
     uniformity = np.abs(np.sum(np.diff(desired, axis=0)))
-
     
-    # print(sum_desired, np.sum(np.hstack(undesired)), rel_amplitude, np.hstack(rel_des_undes))
     
     if (
         (np.abs(1 - np.sum(rel_amplitude)) < ci / 100) 
@@ -307,18 +312,21 @@ def wavefunction_loss(x, *argv):
                                                 wfs, 
                                                 reference_wavefunctions
                                                )
-            if desired_coupling>(topological_gap*5/100):
+            # print(desired_coupling)
+            print(f"coupling:{desired_coupling:.3e}")
+            if desired_coupling>(topological_gap*1/100):
                 return -1
-        except (AttributeError, UnboundLocalError):
+        except UnboundLocalError:
             pass
-
+        
+    print(-sum(sum_desired), uniformity, 1e1*np.sum(np.hstack(undesired)))
     
-    return (
-        - sum(sum_desired)
-        + uniformity
-        + 1e1*np.sum(np.hstack(undesired))
-    )
+    wf_cost = (- sum(sum_desired)
+              # + uniformity
+              + 1e1*np.sum(np.hstack(undesired))
+              )
 
+    return wf_cost
 
 def _amplitude(pair, index, wf):
     desired = dict.fromkeys(pair, [])
@@ -328,8 +336,7 @@ def _amplitude(pair, index, wf):
         if gate in pair:
             desired[gate] = np.abs(wf[ind])
         elif gate in depleted_channel:
-            x = np.abs(wf[ind])
-            undesired[list(depleted_channel)[0]] = x[:int(len(x)*50/100)]
+            undesired[list(depleted_channel)[0]] = np.abs(wf[ind])
         else:
             undesired[gate] = np.abs(wf[ind]) # underneath the gates
     ## remove 50% of the depleted channel which is closer to the center
