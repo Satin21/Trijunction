@@ -199,7 +199,7 @@ def shape_loss(x, *argv):
     loss = 0.0
 
     for gate, index in indices.items():
-        diff = np.real(linear_ham[index])
+        diff = np.real(linear_ham[index]) - bands[0]
         if gate in pair:
             if np.any(diff > 0):
                 loss += sum(np.abs(diff[diff > 0]))

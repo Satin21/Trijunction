@@ -3,6 +3,7 @@ scale = 10e-9
 pairs = ["right-top", "left-top", "left-right"]
 sides = ["left", "right", "top"]
 
+rounding_limit = 3
 majorana_pair_indices = dict(zip(pairs, [[1, 2], [0, 2], [0, 1]]))
 
 topological_gap = 0.0003249887255233884

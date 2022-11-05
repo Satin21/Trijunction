@@ -3,9 +3,7 @@ import kwant.continuum
 import numpy as np
 import tinyarray as ta
 
-from codes.constants import scale
-
-rounding_limit = 3
+from codes.constants import scale, rounding_limit
 
 hamiltonian = """( t * (k_x**2 + k_y**2 ) - mu(x,y) )* kron(sigma_0, sigma_z)
 + alpha * k_x * kron(sigma_y, sigma_z)
@@ -47,8 +45,8 @@ def finite_system(**geometry):
 
                 if (
                     x0 - w / 2 - (scale * geometry["grid_spacing"] / 2)
-                    <= x
-                    <= x0 + w / 2 + (scale * geometry["grid_spacing"] / 2)
+                    < x
+                    < x0 + w / 2 + (scale * geometry["grid_spacing"] / 2)
                 ):
                     if y0 - l <= y <= y0:
                         return mu[i]

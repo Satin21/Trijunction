@@ -20,6 +20,7 @@ from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
 from codes.optimization import loss, shape_loss, soft_threshold_loss
+from codes.constants import rounding_limit
 
 sys.path.append("/home/tinkerer/spin-qubit/")
 from potential import gate_potential, linear_problem_instance
@@ -134,7 +135,7 @@ class Trijunction:
         for site in self.trijunction.sites:
             x, y = site.pos
             if y >= 0 and y <= self.geometry["s_l"]:
-                scattering_sites[ta.array(np.round(site.pos * scale, 3))] = value
+                scattering_sites[ta.array(np.round(site.pos / scale, rounding_limit))] = value
         return scattering_sites
 
     def optimize_phases(self):
