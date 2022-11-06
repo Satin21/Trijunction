@@ -83,6 +83,17 @@ def loss(x, *argv):
     # Uncomment this in case of soft-thresholding
     cost = 0
     if isinstance(x, (list, np.ndarray)):
+        
+        args = (pair.split('-'),
+            (system, linear_terms),
+            params['dep_acc_index'], 
+            )
+
+        
+        cost += shape_loss(x, 
+                           *args
+                          )
+        
         weights = [1, 1e2]
         args = (pair.split('-'),
                 params['dep_acc_index'],
@@ -92,6 +103,8 @@ def loss(x, *argv):
         cost += wavefunction_loss(wavefunctions, 
                                   *args
                                  )
+        
+        
     
     
     cost += sum([-desired, undesired])
@@ -207,7 +220,7 @@ def shape_loss(x, *argv):
         else:
             if np.any(diff < 0):
                 loss += sum(np.abs(diff[diff < 0]))
-    # print(loss)
+    print(f"shape:{loss}")
     return loss
 
 
@@ -300,7 +313,7 @@ def wavefunction_loss(x, *argv):
         rel_des_undes.append([sum_desired[i]/undesired[gate + '_' + str(j+1)] for j in range(2)])
     
     undesired = list(undesired.values())
-    # uniformity = np.sum(np.abs(np.diff(desired, axis=0)))
+    uniformity = np.sum(np.abs(np.diff(desired, axis=0)))
     
     if (
         (np.abs(1 - np.sum(rel_amplitude)) < ci / 100) 
@@ -318,9 +331,10 @@ def wavefunction_loss(x, *argv):
         except UnboundLocalError:
             pass
         
-    print(sum_desired, np.hstack(rel_des_undes))
+    print(sum_desired, uniformity, np.hstack(rel_des_undes))
     
     wf_cost = (- weights[0]*sum(sum_desired)
+               + uniformity
               + weights[1]*np.sum(np.hstack(undesired))
               )
 
