@@ -53,7 +53,7 @@ def loss(x, *argv):
     params = argv[1]
     system, linear_terms, f_params, reference_wavefunctions = argv[2]
 
-    # print(x)
+    print(x)
 
     if isinstance(x, (list, np.ndarray)):
         params.update(voltage_dict(x))
@@ -83,13 +83,13 @@ def loss(x, *argv):
     # Uncomment this in case of soft-thresholding
     cost = 0
     if isinstance(x, (list, np.ndarray)):
-
+        weights = [1, 1e2]
         args = (pair.split('-'),
                 params['dep_acc_index'],
-                (10, 1)
+                (10, weights)
                )
 
-        cost += 1e1* wavefunction_loss(wavefunctions, 
+        cost += wavefunction_loss(wavefunctions, 
                                   *args
                                  )
     
@@ -246,7 +246,7 @@ def wavefunction_loss(x, *argv):
         
 
         system, params, linear_terms, f_params, reference_wavefunctions = argv[0]
-        pair, ci, wf_amp = argv[1]
+        pair, ci, weights = argv[1]
         
         indices = params['dep_acc_index']
 
@@ -265,7 +265,7 @@ def wavefunction_loss(x, *argv):
             )
         
     else:
-        pair, indices, (ci, wf_amp) = argv
+        pair, indices, (ci, weights) = argv
         wfs = x
     
     
@@ -290,7 +290,7 @@ def wavefunction_loss(x, *argv):
                       )
 
 
-    sum_desired = np.sum(np.abs(desired, axis=1))
+    sum_desired = np.sum(desired, axis=1)
     
     rel_amplitude = sum_desired[0] / sum_desired[1]
     
@@ -300,8 +300,7 @@ def wavefunction_loss(x, *argv):
         rel_des_undes.append([sum_desired[i]/undesired[gate + '_' + str(j+1)] for j in range(2)])
     
     undesired = list(undesired.values())
-    uniformity = np.sum(np.abs(np.diff(desired, axis=0)))
-    
+    # uniformity = np.sum(np.abs(np.diff(desired, axis=0)))
     
     if (
         (np.abs(1 - np.sum(rel_amplitude)) < ci / 100) 
@@ -319,11 +318,10 @@ def wavefunction_loss(x, *argv):
         except UnboundLocalError:
             pass
         
-    print(-sum(sum_desired), uniformity, 1e1*np.sum(np.hstack(undesired)))
+    print(sum_desired, np.hstack(rel_des_undes))
     
-    wf_cost = (- sum(sum_desired)
-              # + uniformity
-              + 1e1*np.sum(np.hstack(undesired))
+    wf_cost = (- weights[0]*sum(sum_desired)
+              + weights[1]*np.sum(np.hstack(undesired))
               )
 
     return wf_cost
