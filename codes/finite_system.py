@@ -18,8 +18,8 @@ def finite_system(**geometry):
     Create a kwant builder that describes three wires connected by a cavity as defined in geometry.
     The builder is filled with a discretized continuum hamiltonian.
 
-    Parameters:
-    -----------
+    Input:
+    ------
         geometry: dictionary containing overall system geometry.
 
     Returns:

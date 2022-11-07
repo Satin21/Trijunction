@@ -94,7 +94,7 @@ def loss(x, *argv):
                            *args
                           )
         
-        weights = [1, 1e2]
+        weights = [1, 1, 1e2]
         args = (pair.split('-'),
                 params['dep_acc_index'],
                 (10, weights)
@@ -315,6 +315,8 @@ def wavefunction_loss(x, *argv):
     undesired = list(undesired.values())
     uniformity = np.sum(np.abs(np.diff(desired, axis=0)))
     
+    print(sum_desired, uniformity, np.hstack(rel_des_undes))
+    
     if (
         (np.abs(1 - np.sum(rel_amplitude)) < ci / 100) 
         and np.all(np.hstack(rel_des_undes) > 10)
@@ -331,11 +333,13 @@ def wavefunction_loss(x, *argv):
         except UnboundLocalError:
             pass
         
-    print(sum_desired, uniformity, np.hstack(rel_des_undes))
+    
+    undesired = np.hstack(undesired)
+    undesired[np.where(undesired > 1e3)] = 1e3
     
     wf_cost = (- weights[0]*sum(sum_desired)
-               + uniformity
-              + weights[1]*np.sum(np.hstack(undesired))
+               + weights[1]*uniformity
+              + weights[2]*np.sum(undesired)
               )
 
     return wf_cost

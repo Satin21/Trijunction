@@ -21,16 +21,30 @@ def check_grid(A, B):
 
 def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     """
-    Parameters
-    ----------
-    config: dictionary
-    boundaries: dictionary
-    gate_vertices: ?
-    gate_names: np.ndarray ?
+    Build a finite element model of the semiconductor heterostructure.
+    
+    Input
+    -----
+    config: dict
+    Contains all the parameters needed to build a finite element model of the 
+    semiconductor heterostructure. Example: thickness, grid spacing, permittivity.
+    Refer to config.json file located in the same directory.
+    
+    boundaries: dict
+    Boundaries of the two dimensional electron gas. It defines the total length and width
+    of the finite element model.
+    
+    gate_vertices: list of ndarray
+    Two dimensional vertices of all the gates.
+    
+    gate_names: list
+    Names of the gates obeying the sequence in the gate vertices.
 
     Returns
     -------
-    Poisson system
+    Poisson system: class instance
+    An instance of the poisson builder with which one can import the voronoi mesh, grid points,
+    voltage and charge region indexes etc.
     """
 
     device_config = config["device"]
