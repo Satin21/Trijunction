@@ -1,12 +1,6 @@
 import numpy as np
 import sys, os
-import kwant
-import json
-
-# sys.path.append(os.path.realpath('./../spin-qubit/'))
-
-sys.path.append("/home/tinkerer/spin-qubit/")
-
+from dask import delayed
 from codes.tools import hamiltonian
 
 from codes.constants import (
@@ -17,21 +11,8 @@ from codes.constants import (
     topological_gap,
     sides,
 )
-from codes.parameters import junction_parameters, dict_update, phase_pairs, voltage_dict
-from codes.utils import wannierize, svd_transformation, eigsh
-
-from potential import gate_potential, linear_problem_instance
-from Hamiltonian import discrete_system_coordinates
-from utility import gather_data
-from dask import delayed
-from scipy.sparse._coo import coo_matrix
-
-
-def density(wf):
-    density = np.zeros(int(len(wf) / 4))
-    for i in range(len(density)):
-        density[i] = np.sum(np.abs(wf[4 * i : 4 * (i + 1)]) ** 2)
-    return density
+from codes.parameters import phase_pairs, voltage_dict
+from codes.utils import svd_transformation, eigsh
 
 
 def loss(x, *argv):
@@ -287,8 +268,36 @@ def wavefunction_loss(x, *argv):
 
     return wf_cost
 
+def density(wf):
+    """
+    Works similar to the Kwant density operator; takes particle-hole and spin degrees of freedom into account.
+    """
+    density = np.zeros(int(len(wf) / 4))
+    for i in range(len(density)):
+        density[i] = np.sum(np.abs(wf[4 * i : 4 * (i + 1)]) ** 2)
+    return density
+
 
 def _amplitude(pair, index, wf):
+    """
+    Returns the amplitude of wavefunction at the positions along the channels and underneath the gates
+    
+    Input
+    -----
+    pair: str
+        Pair to be coupled. Either 'left-right' or 'right-top' or 'left-top'
+    
+    indices: dict
+        Indices of the Kwant system coordinates where the potential  is checked whether depleted or accumulated.
+
+    wf: nx1 array
+    Wavefunctions
+    
+    Returns
+    -------
+    desired, undesired: two 1d array
+    Wavefunction amplitude at the positions to be depleted (also undesired) and accumulated (also desired)
+    """
     desired = dict.fromkeys(pair, [])
     depleted_channel = set(sides) - set(pair)
     undesired = {}
@@ -316,8 +325,6 @@ def majorana_loss(energies, wavefunctions, reference_wavefunctions):
     reference_wavefunctions : 2d array
         Majorana wave functions. The first two correspond to Majoranas that
         need to be coupled.
-    scale : float
-        Energy scale to use.
     """
 
     transformed_hamiltonian = svd_transformation(
@@ -367,6 +374,10 @@ def soft_threshold_loss(x, *argv):
 
 
 def jacobian(x0, *args):
+    """
+    Jacobian matrix using finite difference approximation. This gives same results as approx_fprime function
+    from scipy.optimize. However, this function has an advantage to be computed parallely using dask.delayed.
+    """
 
     initial = delayed(loss)(x0, *args)
     difference = []
@@ -382,9 +393,3 @@ def jacobian(x0, *args):
     output = delayed(loss)(initial, res)
 
     return output.compute()
-
-
-def check_grid(A, B):
-    if A % B:
-        return A % B
-    return B

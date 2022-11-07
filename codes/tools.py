@@ -6,7 +6,8 @@ from kwant.builder import FiniteSystem
 from codes.parameters import junction_parameters
 from scipy.sparse._coo import coo_matrix
 
-sys.path.append(os.path.realpath("/home/tinkerer/spin-qubit/"))
+dirname = os.path.dirname(__file__)
+sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
 from potential import gate_potential
 
 

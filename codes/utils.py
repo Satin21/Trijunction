@@ -10,7 +10,8 @@ from scipy.sparse import identity
 import collections
 import matplotlib.pyplot as plt
 
-sys.path.append(os.path.realpath("/home/tinkerer/spin-qubit/"))
+dirname = os.path.dirname(__file__)
+sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
 from utility import wannier_basis
 
 # https://stackoverflow.com/a/3233356

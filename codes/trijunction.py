@@ -1,6 +1,6 @@
 import kwant
 import numpy as np
-import sys
+import sys, os
 import tinyarray as ta
 from collections import OrderedDict
 from copy import copy
@@ -22,7 +22,9 @@ from codes.discretize import discretize_heterostructure
 from codes.optimization import loss, shape_loss, soft_threshold_loss
 from codes.constants import rounding_limit
 
-sys.path.append("/home/tinkerer/spin-qubit/")
+dirname = os.path.dirname(__file__)
+sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
+
 from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
 

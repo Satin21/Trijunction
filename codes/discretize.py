@@ -1,8 +1,8 @@
 import numpy as np
 import sys, os
 
-sys.path.append("/home/tinkerer/spin-qubit/")
-
+dirname = os.path.dirname(__file__)
+sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
 
 from layout import (
     Layout,

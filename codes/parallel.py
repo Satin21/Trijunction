@@ -5,6 +5,7 @@ import importlib
 import json
 import pickle
 import kwant
+import os
 
 from codes.gate_design import gate_coords
 from codes.constants import scale, bands, topological_gap, sides
@@ -20,8 +21,9 @@ from scipy.optimize import minimize, minimize_scalar
 
 
 def optimize_phase_voltage(argv, config=None):
-    filepath = "/home/srangaswamykup/trijunction-design/codes/"
-    with open(filepath + "config.json", "r") as f:
+    dirname = os.path.dirname(__file__)
+    
+    with open(dirname + "/" + "config.json", "r") as f:
         config = json.load(f)
 
     if config == None and len(argv) == 6:
@@ -37,20 +39,18 @@ def optimize_phase_voltage(argv, config=None):
 
     elif config == None and len(argv) == 2:
         identifier, pair = argv
-        with open(filepath + "config.json", "r") as f:
+        with open(dirname + "config.json", "r") as f:
             config = json.load(f)
     elif len(argv) == 3:
         identifier, pair, change_config = argv
         for local_config in change_config:
             config = dict_update(config, local_config)
 
-    print(config)
-
     system = trijunction.Trijunction(config, optimize_phase_pairs=[])
 
     phase, voltage, coupling = {}, {}, {}
-
-    filepath = "/home/srangaswamykup/trijunction-design/data/"
+    
+    filepath = os.path.realpath(os.path.join(dirname, '../data/'))
 
     fig, ax = plt.subplots(ncols=1, figsize=(6, 4))
 
