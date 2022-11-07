@@ -47,10 +47,10 @@ class Trijunction:
         ) = gate_coords(self.config)
 
         self.initialize_kwant()
-        
+
         if solve_poisson:
             self.initialize_poisson()
-            
+
             self.base_params = junction_parameters()
             self.base_params.update(potential=self.flat_potential())
             self.create_base_matrices()
@@ -68,10 +68,10 @@ class Trijunction:
                     sparse=True, params=self.f_params(**self.base_params)
                 )
                 self.optimal_base_hams[pair] = ham
-                
+
         self.compute_topological_gap()
         # This step cannot be done ahead of generating Wannier basis.
-        # Otherwise, it results in assertion error for some reason when checking whether the 
+        # Otherwise, it results in assertion error for some reason when checking whether the
         # eigenstates are orthogonal. TODO.
 
     def initialize_kwant(self):
@@ -138,7 +138,9 @@ class Trijunction:
         for site in self.trijunction.sites:
             x, y = site.pos
             if y >= 0 and y <= self.geometry["s_l"]:
-                scattering_sites[ta.array(np.round(site.pos / scale, rounding_limit))] = value
+                scattering_sites[
+                    ta.array(np.round(site.pos / scale, rounding_limit))
+                ] = value
         return scattering_sites
 
     def optimize_phases(self):
@@ -190,12 +192,13 @@ class Trijunction:
         Calculate the indexes of sites along the depletion and accumulation regions.
         """
         if not indices:
-            L = self.config['gate']['L']
-            gap = self.config['gate']['gap']
+            L = self.config["gate"]["L"]
+            gap = self.config["gate"]["gap"]
             shift = 1
-            spacing = (self.config["device"]["grid_spacing"]["twoDEG"]*scale)/1e-9
+            spacing = (self.config["device"]["grid_spacing"]["twoDEG"] * scale) / 1e-9
             npts = np.rint(
-                (L + gap + (spacing - gap % spacing) - (shift*spacing))/spacing).astype(int)
+                (L + gap + (spacing - gap % spacing) - (shift * spacing)) / spacing
+            ).astype(int)
             self.indices = dep_acc_index(
                 zip(self.gate_names, self.gates_vertex),
                 self.nw_centers,
@@ -254,7 +257,7 @@ class Trijunction:
             kwant_params_fn=self.f_params,
             mlwf=self.mlwf[order_wavefunctions(pair)],
         )
-    
+
     def compute_topological_gap(self):
         ## Check whether all the nanowires has equal width and topological gap
         ## If not, most probably the kwant system is built wrongly.
@@ -264,7 +267,7 @@ class Trijunction:
             sparse=True, params=self.f_params(**base_params)
         )
         evals, evecs = eigsh(ham, k=20, sigma=0, return_eigenvectors=True)
-        assert np.all(evals[10:13] - evals[10:13][0] < 1e-14) # 10, 11, 12 are MBS
+        assert np.all(evals[10:13] - evals[10:13][0] < 1e-14)  # 10, 11, 12 are MBS
         self.topological_gap = evals[14]
 
     def check_symmetry(self, voltages_list):

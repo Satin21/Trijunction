@@ -7,17 +7,33 @@ from collections import OrderedDict
 
 def gate_coords(config):
 
-    """Find the gate coordinates that defines the trijunction
+    """Find gate vertices that defines the trijunction
 
-    L: Channel length
-    gap: Gap between gates
-    channel_width: width of the channel
-    angle: Angle the channel makes with the x-axis [in radians]
+    Input
+    -----
+    config: dict
+    Must include all the parameters necessary to define the gate vertices for trijunction.
+    Specifically, it should contain the key with the values for
+        L: channel length
+        gap: gap between gates
+        channel_width
+        angle: angle the channel makes with the x-axis
 
-    Returns:
-    Gates vertices and their names
-    boundary: coordinates of the four corners of the system envelope
-    channel centers: Coordinates of the 2DEG at which nanowires can be connected
+
+    Returns
+    -------
+    gates_vertex : list of ndarray
+    Vertices of every gate
+
+    gate_names: list
+    Gate names to be defined as voltage region in the Poisson system.
+
+    boundaries:
+    Upper and lower bound for the two dimensional gate layer.
+    Contain xmin, xmax, ymin, ymax
+
+    channel centers:
+    Coordinates of the 2DEG at which nanowires can be connected.
 
     """
 
@@ -42,7 +58,8 @@ def gate_coords(config):
     )
 
     def shift(x, adjustment):
-        if not isinstance(x, np.ndarray): x = np.array(x.coords)
+        if not isinstance(x, np.ndarray):
+            x = np.array(x.coords)
         x[:, 0] += adjustment
         return x
 
@@ -103,9 +120,9 @@ def gate_coords(config):
     )
 
     top, bottom = list(gates[1].difference(splitter.buffer(gap / 2)).geoms)
-    
-    grid_spacing = config['device']['grid_spacing']['gate']
-    
+
+    grid_spacing = config["device"]["grid_spacing"]["gate"]
+
     left_1 = np.round(np.array(bottom.exterior.coords))
     top_1 = np.round(np.array(top.exterior.coords))
     top_2 = top_1.copy() @ [[-1, 0], [0, 1]]
@@ -123,7 +140,7 @@ def gate_coords(config):
     right_1 = left_2.copy() @ [[-1, 0], [0, 1]]
 
     gates_vertex = [left_1, left_2, right_1, right_2, top_1, top_2]
-    
+
     gate_names = ["left_1", "left_2", "right_1", "right_2", "top_1", "top_2"]
     assert min(left_1[:, 0]) == min(top_1[:, 0])
     assert max(right_2[:, 0]) == max(top_2[:, 0])
@@ -141,10 +158,7 @@ def gate_coords(config):
         top=np.hstack([0, max(top_1[:, 1])]),
     )
 
-    return (gates_vertex, 
-            gate_names,
-            boundaries,
-            channel_center)
+    return (gates_vertex, gate_names, boundaries, channel_center)
 
 
 def consistent_grid(coords, grid_spacing):

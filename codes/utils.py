@@ -183,41 +183,79 @@ def dep_acc_index(
 
     vector_shift = a * vector_shift[1]
 
-
     for i, side in enumerate(sides):
 
         centroids[f"{side}"] = (
-            a * centers_dict[f"{side}"] * np.ones((npts, 2)) + vector_shift[i] * rotation[i]
+            a * centers_dict[f"{side}"] * np.ones((npts, 2))
+            + vector_shift[i] * rotation[i]
         )
-    
-    pts = int(npts/2/2)
-    vector_shift = a * np.mgrid[0:3, -pts : pts, 0:2][1]
+
+    pts = int(npts / 2 / 2)
+    vector_shift = a * np.mgrid[0:3, -pts:pts, 0:2][1]
     rotation = spacing * np.array(
         [[np.sin(angle), np.cos(angle)], [-np.sin(angle), np.cos(angle)], [0, -1]]
     )
     pts = vector_shift[0].shape[0]
-    
+
     # centroids of the gates
     shift_index = [0, 0, 1, 1, 2, 2]
     for i, (gate_name, gate_pos) in enumerate(gates_dict):
-        x = gate_pos.T[0][:-1] #-1 because the first and last vertex in gate_vertices are the same. 
-        y = gate_pos.T[1][:-1] # and we avoid counting them twice by not considering the last vertex.
+        x = gate_pos.T[0][
+            :-1
+        ]  # -1 because the first and last vertex in gate_vertices are the same.
+        y = gate_pos.T[1][
+            :-1
+        ]  # and we avoid counting them twice by not considering the last vertex.
         centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
-        centroids[gate_name] = (
-            a * centroid
-        )
+        centroids[gate_name] = a * centroid
         # centroids[gate_name] = (
         #     a * centroid * np.ones((pts, 2)) +  vector_shift[shift_index[i]] * rotation[shift_index[i]]
         # )
-        
-    
+
     # get indexes in the kwant system
     for key, val in centroids.copy().items():
         if key in sides:
-            centroids[f"{key}"] = [_closest_node(val[i], kwant_sites) for i in range(npts)]
+            centroids[f"{key}"] = [
+                _closest_node(val[i], kwant_sites) for i in range(npts)
+            ]
             # centroids.pop(key)
         else:
             centroids[f"{key}"] = [_closest_node(val, kwant_sites)]
             # centroids.pop(key)
 
     return centroids
+
+
+def optimizer_status(
+    x, max_count=50, filepath="/home/tinkerer/trijunction-design/data"
+):
+    """
+    Checks whether the optimizer is stuck in the optimum for more than max_count, then return -1.
+
+
+    """
+    # It reads the json file containing the result of previous function evaluation in the optimization
+    # step. Checks whether the value in the dictionary is higher than max_count and then return -1.
+
+    with open(filepath, "rb") as outfile:
+        data = json.load(outfile)
+
+    x = str(x)
+    key = list(data.keys())
+    if len(key) == 0:
+        # if empty dictionary add no matter what
+        data[x] = 1
+    elif x in data:
+        # if x already exists in data, then increase it count by 1
+        data[x] += 1
+    elif key[0] < x:
+        # if existing key in the dictionary is lower than the current x, replace it with x.
+        del data[key[0]]
+        data[x] = 1
+
+    with open(filepath, "w") as outfile:
+        json.dump(data, outfile)
+
+    if list(data.values())[0] > max_count:
+        return -1
+    return 0

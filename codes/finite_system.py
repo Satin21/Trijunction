@@ -20,12 +20,14 @@ def finite_system(**geometry):
 
     Input:
     ------
-        geometry: dictionary containing overall system geometry.
+        geometry: dict
+        Contains length and width of nanowires and scattering region.
 
     Returns:
     --------
         trijunction: kwant.FiniteSystem
-        f_params: function
+        f_params: callable
+        Dictionary of updated parameters.
     """
 
     l = geometry["nw_l"]
@@ -71,6 +73,8 @@ def finite_system(**geometry):
         return system
 
     def f_params(**params):
+        """Variables in the continuum tight binding Hamiltonian can be changed by passing a dictionary
+        of updated parameters"""
 
         mus_nw = params.pop("mus_nw")
         Delta = params.pop("Delta")
@@ -115,10 +119,32 @@ def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
 
     """
 
-    Builds a tight binding Kwant system with scattering region and nw leads
+    Builds a tight binding Kwant system with nanowire leads attached to a scattering region.
 
+    Input
+    -----
+    config: dict
+    Must include the key `kwant` with the values for the variables nwl and nww.
 
+    boundaries: dict
+    upper and lower bounds of the kwant system (electron gas) across two dimensions.
 
+    nw_centers: dict
+    Three (x,y) coordinates at which the three nanowires are connected to the scattering region.
+
+    scale: float (optional)
+    Scale for the Kwant system in the units of m.
+
+    Returns
+    -------
+    geometry: dict
+    Contains length and width of nanowires and scattering region.
+
+    trijunction: kwant.FiniteSystem
+
+    f_params: callable
+    Function to update the parameters in the continuum Hamiltonian especially the potential energy
+    across scattering region, nanowire chemical potential and phases.
     """
 
     a = scale
@@ -155,4 +181,3 @@ def get_potential(potential):
         return potential[ta.array(np.round(np.array([x, y]) / scale, rounding_limit))]
 
     return f
-

@@ -7,182 +7,202 @@ import pickle
 import kwant
 
 from codes.gate_design import gate_coords
-from codes.constants import scale, bands, topological_gap
+from codes.constants import scale, bands, topological_gap, sides
 import codes.trijunction as trijunction
 from codes.optimization import loss, shape_loss, wavefunction_loss
 import codes.parameters as parameters
 from codes.tools import hamiltonian
 from codes.utils import eigsh, svd_transformation, dict_update, dep_acc_index
-from codes.utils import order_wavefunctions, ratio_Gaussian_curvature
+from codes.utils import order_wavefunctions
 from codes.optimization import majorana_loss
 
 from scipy.optimize import minimize, minimize_scalar
 
 
-def optimize_phase_voltage(
-    argv
-):
-    identifier, thickness, channel_width, angle, gap = argv
-    pairs=['left-right', 'left-top', 'right-top']
-
+def optimize_phase_voltage(argv, config=None):
     filepath = "/home/srangaswamykup/trijunction-design/codes/"
-    
     with open(filepath + "config.json", "r") as f:
         config = json.load(f)
 
-    change_config = [
-        {"device": {"thickness": {"dielectric": thickness}}},
-        {"gate": {"channel_width": channel_width, "angle": angle, "gap": gap}},
-    ]
+    if config == None and len(argv) == 6:
+        identifier, thickness, channel_width, angle, gap, pair = argv
 
-    for local_config in change_config:
-        config = dict_update(config, local_config)
+        change_config = [
+            {"device": {"thickness": {"dielectric": thickness}}},
+            {"gate": {"channel_width": channel_width, "angle": angle, "gap": gap}},
+        ]
+
+        for local_config in change_config:
+            config = dict_update(config, local_config)
+
+    elif config == None and len(argv) == 2:
+        identifier, pair = argv
+        with open(filepath + "config.json", "r") as f:
+            config = json.load(f)
+    elif len(argv) == 3:
+        identifier, pair, change_config = argv
+        for local_config in change_config:
+            config = dict_update(config, local_config)
+
+    print(config)
 
     system = trijunction.Trijunction(config, optimize_phase_pairs=[])
-    
-    phases, voltages, couplings = {}, {}, {}
-    
+
+    phase, voltage, coupling = {}, {}, {}
+
     filepath = "/home/srangaswamykup/trijunction-design/data/"
-    
-    fig, ax = plt.subplots(ncols=3, figsize=(6, 4))
-    
-    for i, pair in enumerate(pairs):
 
-        params = parameters.junction_parameters()
-        params.update(potential=system.flat_potential())
-        params['dep_acc_index'] = system.indices
+    fig, ax = plt.subplots(ncols=1, figsize=(6, 4))
 
-        args = (pair.split('-'),
-                (system.base_ham, system.linear_terms, system.densityoperator),
-                params['dep_acc_index'], 
-                )
+    params = parameters.junction_parameters()
+    params.update(potential=system.flat_potential())
 
-        initial_condition = (-3e-3, -3e-3, -3e-3, 3e-3)
+    index = system.indices.copy()
 
-        sol1 = minimize(codes.optimization.shape_loss, 
-                 x0=initial_condition, 
-                 args=args, 
-                 method='trust-constr', 
-                 options={'initial_tr_radius':1e-3}
-                )
+    # remove 50% of the points from the channel to be depleted that is closest to the center.
+    depleted_channel = list(set(sides) - set(pair.split("-")))[0]
+    depleted_indices = index[depleted_channel]
+    index[depleted_channel] = depleted_indices[: int(len(depleted_indices) * 50 / 100)]
 
-        ci, wf_amp = 50, 1e-4
-        args = ((system.base_ham, 
-                params, 
-                system.linear_terms, 
-                system.f_params, 
-                system.densityoperator,
-                 system.mlwf[order_wavefunctions(pair)]),
-                (pair.split('-'), params['dep_acc_index'], (ci, wf_amp))
-               )
+    params["dep_acc_index"] = index
 
-        sol2 = minimize(codes.optimization.wavefunction_loss, 
-                 x0=sol1.x, 
-                 args=args, 
-                 method='trust-constr',
-                 options={
-                     'initial_tr_radius':1e-3,
-                     # 'verbose':2,
-                 }
-                )
+    args = (
+        pair.split("-"),
+        (system.base_ham, system.linear_terms),
+        params["dep_acc_index"],
+    )
 
-        params.update(parameters.voltage_dict(sol2.x))
+    initial_condition = (-3e-3, -3e-3, -3e-3, 3e-3)
 
-        args = (
-            pair,
+    sol1 = minimize(
+        codes.optimization.shape_loss,
+        x0=initial_condition,
+        args=args,
+        method="trust-constr",
+        options={"initial_tr_radius": 1e-3},
+    )
+
+    print(f"sol1:{sol1.x}")
+
+    ci, weights = 50, [1, 1, 1e1]
+    args = (
+        (
+            system.base_ham,
             params,
-            (
-                system.trijunction,
-                system.linear_terms,
-                system.f_params,
-                system.densityoperator,
-                system.mlwf[order_wavefunctions(pair)],
-            ),
-        )
+            system.linear_terms,
+            system.f_params,
+            system.mlwf[order_wavefunctions(pair)],
+        ),
+        (pair.split("-"), ci, weights),
+    )
 
-        sol3 = minimize_scalar(loss, args=args, method="bounded", bounds=(0, 2))
+    sol2 = minimize(
+        codes.optimization.wavefunction_loss,
+        x0=sol1.x,
+        args=args,
+        method="trust-constr",
+        options={
+            "initial_tr_radius": 1e-3,
+            "verbose": 2,
+        },
+    )
 
-        phases[pair] = sol3.x * np.pi
+    initial_condition = parameters.voltage_dict(sol2.x)
+    print(f"sol2:{sol2.x}")
 
+    params.update(parameters.voltage_dict(sol2.x))
 
-        params.update(parameters.phase_pairs(pair, phases[pair]))
-        base_ham = system.trijunction.hamiltonian_submatrix(
-            sparse=True, params=system.f_params(**params)
-        )
+    args = (
+        pair,
+        params,
+        (
+            system.trijunction,
+            system.linear_terms,
+            system.f_params,
+            system.mlwf[order_wavefunctions(pair)],
+        ),
+    )
 
-        args = (
-            pair,
-            params,
-            (
-                base_ham,
-                system.linear_terms,
-                system.f_params,
-                system.densityoperator,
-                system.mlwf[order_wavefunctions(pair)],
-            ),
-            identifier
-        )
-        
+    sol3 = minimize_scalar(
+        codes.optimization.loss, args=args, method="bounded", bounds=(0, 2)
+    )
 
-        file = filepath + 'coupling' + str(identifier) + '.json'
-        with open(file, 'w') as outfile:
-            json.dump({}, outfile)
+    phase = sol3.x * np.pi
 
-        sol4 = minimize(
-            loss,
-            x0=sol2.x,
-            args=args,
-            method="trust-constr",
-            options={"initial_tr_radius": 1e-3},
-        )
-        
-        file = filepath + 'coupling' + str(identifier) + '.json'
-        with open(file, 'w') as outfile:
-            json.dump({}, outfile)
+    params.update(parameters.phase_pairs(pair, phase))
 
-        voltages[pair] = parameters.voltage_dict(sol4.x)
-        
-        params.update(voltages[pair])
+    base_ham = system.trijunction.hamiltonian_submatrix(
+        sparse=True, params=system.f_params(**params)
+    )
 
-        base_ham = system.trijunction.hamiltonian_submatrix(
-            sparse=True, params=system.f_params(**params)
-        )
+    args = (
+        pair,
+        params,
+        (
+            base_ham,
+            system.linear_terms,
+            system.f_params,
+            system.mlwf[order_wavefunctions(pair)],
+        ),
+    )
 
-        linear_ham, full_ham = hamiltonian(base_ham, 
-                                           system.linear_terms, 
-                                           **params
-                                          )
+    sol4 = minimize(
+        codes.optimization.loss,
+        x0=sol2.x,
+        args=args,
+        method="trust-constr",
+        options={
+            "initial_tr_radius": 1e-3,
+            "verbose": 2,
+        },
+    )
 
+    voltages = parameters.voltage_dict(sol4.x)
 
-        evals, evecs = eigsh(full_ham, k=6, sigma=0, return_eigenvectors=True)
+    params.update(voltages)
 
+    base_ham = system.trijunction.hamiltonian_submatrix(
+        sparse=True, params=system.f_params(**params)
+    )
 
-        desired, undesired = majorana_loss(
-            evals, evecs, system.mlwf[order_wavefunctions(pair)]
-        )
-        
-        couplings[pair] = {'desired': desired, 
-                           'undesired': undesired
-                          }
+    linear_ham, full_ham = hamiltonian(base_ham, system.linear_terms, **params)
 
-        wfv = system.densityoperator(evecs[:, 0])
+    evals, evecs = eigsh(full_ham, k=6, sigma=0, return_eigenvectors=True)
 
-        # kwant.plotter.map(system.trijunction, lambda i: step_potential[i], ax=ax[0])
-        kwant.plotter.density(system.trijunction, wfv, ax = ax[i]);
-        ax[i].set_title(np.round(desired/topological_gap, 3))
+    desired, undesired = majorana_loss(
+        evals, evecs, system.mlwf[order_wavefunctions(pair)]
+    )
 
-    
-    plt.savefig(filepath + 'wf_' + str(identifier) + '.pdf', format='pdf')
-    
-    result = {'thickness': thickness,
-              'channel_width': channel_width,
-              'gap': gap,
-              'angle': angle,
-              'phase': phases,
-              'voltages':voltages,
-              'couplings': couplings
-              }
-    
-    json.dump(result, open(filepath + str(identifier) + '.json', "w"))
-    
+    couplings = {"desired": desired, "undesired": undesired}
+
+    wfv = system.densityoperator(evecs[:, 0])
+
+    # kwant.plotter.map(system.trijunction, lambda i: step_potential[i], ax=ax[0])
+    kwant.plotter.density(system.trijunction, wfv, ax=ax)
+    ax.set_title(np.round(desired / topological_gap, 3))
+
+    plt.savefig(filepath + "wf_" + str(identifier) + ".pdf", format="pdf")
+
+    if config == None:
+        result = {
+            "thickness": thickness,
+            "channel_width": channel_width,
+            "gap": gap,
+            "angle": angle,
+            "phase": phases,
+            "voltages": voltages,
+            "couplings": couplings,
+            "pair": pair,
+        }
+
+    else:
+        result = {
+            "phase": phases,
+            "voltages": voltages,
+            "couplings": couplings,
+            "pair": pair,
+        }
+
+    json.dump(result, open(filepath + "_" + pair + str(identifier) + ".json", "w"))
+
     return phases, voltages
