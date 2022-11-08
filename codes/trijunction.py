@@ -270,9 +270,8 @@ class Trijunction:
         )
 
         evals = eigsh(ham, k=12, sigma=0, return_eigenvectors=False)
-        evals = evals[evals>0.0]
-        assert np.all(np.diff(evals[:3]) < 1e-9)  # first three states closest to zero are MBS
-        self.topological_gap = evals[3]
+        assert np.all(np.abs(np.diff(evals[:3])) < 1e-9)  # first three states closest to zero are topo gap
+        self.topological_gap = evals[-1]
 
     def check_symmetry(self, voltages_list):
         """
