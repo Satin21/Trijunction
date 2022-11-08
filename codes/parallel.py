@@ -10,7 +10,7 @@ import os
 from codes.gate_design import gate_coords
 from codes.constants import scale, bands, topological_gap, sides
 import codes.trijunction as trijunction
-from codes.optimization import loss, shape_loss, wavefunction_loss
+from codes.optimization import loss, shape_loss, wavefunction_loss, density
 import codes.parameters as parameters
 from codes.tools import hamiltonian
 from codes.utils import eigsh, svd_transformation, dict_update, dep_acc_index
@@ -21,6 +21,9 @@ from scipy.optimize import minimize, minimize_scalar
 
 
 def optimize_phase_voltage(argv, config=None):
+    
+    
+    
     dirname = os.path.dirname(__file__)
     
     with open(dirname + "/" + "config.json", "r") as f:
@@ -46,13 +49,13 @@ def optimize_phase_voltage(argv, config=None):
         for local_config in change_config:
             config = dict_update(config, local_config)
 
+    filepath = os.path.realpath(os.path.join(dirname, '../data/'))
+    
     system = trijunction.Trijunction(config, optimize_phase_pairs=[])
+    
 
     phase, voltage, coupling = {}, {}, {}
-    
-    filepath = os.path.realpath(os.path.join(dirname, '../data/'))
 
-    fig, ax = plt.subplots(ncols=1, figsize=(6, 4))
 
     params = parameters.junction_parameters()
     params.update(potential=system.flat_potential())
@@ -75,7 +78,7 @@ def optimize_phase_voltage(argv, config=None):
     initial_condition = (-3e-3, -3e-3, -3e-3, 3e-3)
 
     sol1 = minimize(
-        codes.optimization.shape_loss,
+        shape_loss,
         x0=initial_condition,
         args=args,
         method="trust-constr",
@@ -97,7 +100,7 @@ def optimize_phase_voltage(argv, config=None):
     )
 
     sol2 = minimize(
-        codes.optimization.wavefunction_loss,
+        wavefunction_loss,
         x0=sol1.x,
         args=args,
         method="trust-constr",
@@ -124,7 +127,7 @@ def optimize_phase_voltage(argv, config=None):
     )
 
     sol3 = minimize_scalar(
-        codes.optimization.loss, args=args, method="bounded", bounds=(0, 2)
+        loss, args=args, method="bounded", bounds=(0, 2)
     )
 
     phase = sol3.x * np.pi
@@ -147,7 +150,7 @@ def optimize_phase_voltage(argv, config=None):
     )
 
     sol4 = minimize(
-        codes.optimization.loss,
+        loss,
         x0=sol2.x,
         args=args,
         method="trust-constr",
@@ -175,13 +178,13 @@ def optimize_phase_voltage(argv, config=None):
 
     couplings = {"desired": desired, "undesired": undesired}
 
-    wfv = system.densityoperator(evecs[:, 0])
+    wfv = density(evecs[:, 0])
 
-    # kwant.plotter.map(system.trijunction, lambda i: step_potential[i], ax=ax[0])
+    fig, ax = plt.subplots(ncols=1, figsize=(6, 4))
     kwant.plotter.density(system.trijunction, wfv, ax=ax)
     ax.set_title(np.round(desired / topological_gap, 3))
 
-    plt.savefig(filepath + "wf_" + str(identifier) + ".pdf", format="pdf")
+    plt.savefig(filepath + "/" + pair + "_" + "wf_" + str(identifier) + ".pdf", format="pdf")
 
     if config == None:
         result = {
@@ -189,7 +192,7 @@ def optimize_phase_voltage(argv, config=None):
             "channel_width": channel_width,
             "gap": gap,
             "angle": angle,
-            "phase": phases,
+            "phase": phase,
             "voltages": voltages,
             "couplings": couplings,
             "pair": pair,
@@ -197,12 +200,12 @@ def optimize_phase_voltage(argv, config=None):
 
     else:
         result = {
-            "phase": phases,
+            "phase": phase,
             "voltages": voltages,
             "couplings": couplings,
             "pair": pair,
         }
 
-    json.dump(result, open(filepath + "_" + pair + str(identifier) + ".json", "w"))
+    json.dump(result, open(filepath + "/" + pair + "_" + str(identifier) + ".json", "w"))
 
-    return phases, voltages
+    return phase, voltages

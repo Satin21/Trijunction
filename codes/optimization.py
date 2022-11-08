@@ -60,7 +60,7 @@ def loss(x, *argv):
 
     desired /= topological_gap
     undesired /= topological_gap
-    print(desired, undesired)
+    # prints(desired, undesired)
 
     # Uncomment this in case of soft-thresholding
     cost = 0
@@ -131,7 +131,7 @@ def shape_loss(x, *argv):
         else:
             if np.any(diff < 0):
                 loss += sum(np.abs(diff[diff < 0]))
-    print(f"shape:{loss}")
+    # print(f"shape:{loss}")
     return loss
 
 
@@ -246,7 +246,7 @@ def wavefunction_loss(x, *argv):
     undesired[np.where(undesired > 1e3)] = 1e3
     uniformity[np.where(uniformity < 1e-6)] = 1e-6
 
-    print(sum_desired, uniformity, np.hstack(rel_des_undes))
+    # print(sum_desired, uniformity, np.hstack(rel_des_undes))
 
     if (np.abs(1 - np.sum(rel_amplitude)) < ci / 100) and np.all(
         np.hstack(rel_des_undes) > 10
@@ -254,7 +254,7 @@ def wavefunction_loss(x, *argv):
         try:
             desired_coupling, _ = majorana_loss(energies, wfs, reference_wavefunctions)
             # print(desired_coupling)
-            print(f"coupling:{desired_coupling:.3e}")
+            # print(f"coupling:{desired_coupling:.3e}")
             if desired_coupling > (topological_gap * 1 / 100):
                 return -1
         except UnboundLocalError:
