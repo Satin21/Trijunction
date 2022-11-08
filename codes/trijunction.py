@@ -266,9 +266,12 @@ class Trijunction:
         ham = self.trijunction.hamiltonian_submatrix(
             sparse=True, params=self.f_params(**base_params)
         )
-        evals, evecs = eigsh(ham, k=20, sigma=0, return_eigenvectors=True)
-        assert np.all(evals[10:13] - evals[10:13][0] < 1e-14)  # 10, 11, 12 are MBS
-        self.topological_gap = evals[14]
+        # 12 eigenvalues, 6 for MBS, 6 for excited states
+        evals = eigsh(ham, k=12, sigma=0)
+
+        assert np.all(np.diff(evals[:3]) < 1e-9)
+        assert np.all(np.diff(evals[3:6]) < 1e-9)
+        self.topological_gap = evals[0]
 
     def check_symmetry(self, voltages_list):
         """
