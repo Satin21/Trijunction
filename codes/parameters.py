@@ -58,7 +58,7 @@ def junction_parameters(m_nw=[bands[0]] * 3, bx=0.001):
 
     a = 10e-9
     t = hbar**2 / (2 * 0.023 * electron_mass) * (6.24e18)
-    alpha = 0.3e-10
+    alpha = 3e-3*a
     Delta = 5e-4
     parameters = dict(
         mus_nw=m_nw,
