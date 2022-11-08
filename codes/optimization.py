@@ -112,7 +112,7 @@ def shape_loss(x, *argv):
     # print(x)
 
     pair = argv[0]
-    system, linear_terms = argv[1]
+    system, linear_terms, _ = argv[1]
     indices = argv[2]
 
     voltages = voltage_dict(x)
@@ -370,7 +370,7 @@ def soft_threshold_loss(x, *argv):
     argv = (pair, indices, (ci, wf_amp))
     evals, evecs = eigsh(full_hamiltonian, k=6, sigma=0, return_eigenvectors=True)
 
-    return 1e2 * potential_shape_loss + wavefunction_loss(evecs, *argv)
+    return potential_shape_loss + wavefunction_loss(evecs, *argv)
 
 
 def jacobian(x0, *args):
