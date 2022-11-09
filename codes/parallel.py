@@ -104,7 +104,7 @@ def optimize_phase_voltage(argv, config=None):
         
     initial_condition = sol2.x
 
-    params.update(parameters.voltage_dict(initial_conditions[pair]))
+    params.update(parameters.voltage_dict(initial_condition))
     
     args = (pair, 
             params, 
@@ -139,7 +139,7 @@ def optimize_phase_voltage(argv, config=None):
            )
     
     sol4 = minimize(loss, 
-             x0=initial_conditions[pair].x, 
+             x0=sol2.x, 
              args=args, 
              method='trust-constr', 
              options={
@@ -199,7 +199,7 @@ def optimize_phase_voltage(argv, config=None):
         }
 
     pickle.dump(result, 
-                open(filepath + "/" + pair + "_" + str(identifier) + ".pkl", "w"), 
+                open(filepath + "/" + pair + "_" + str(identifier) + ".pkl", "wb"), 
                protocol=pickle.HIGHEST_PROTOCOL)
 
     return phase, voltages

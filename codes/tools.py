@@ -3,40 +3,45 @@ import numpy as np
 import tinyarray as ta
 from tqdm import tqdm
 from kwant.builder import FiniteSystem
-from codes.parameters import junction_parameters
-from scipy.sparse._coo import coo_matrix
 
 dirname = os.path.dirname(__file__)
 sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
 from potential import gate_potential
 
 
-def get_potential(potential):
-    def f(x, y):
-        return potential[ta.array([x, y])]
-
-    return f
-
-
 def linear_Hamiltonian(
     poisson_system, poisson_params, kwant_system, kwant_params_fn, kwant_params, gates
 ):
     """
-    Generate the matrix describing the linear contribution of each gate.
+    Find matrices using which the onsite potential energy term in the tight binding Hamiltonian
+    can be written as linear combinations with voltages as coefficients. 
     A flat potential is set everywhere, and one gate is varied at a time.
 
     Parameters
     ----------
-    poisson_system
-    poisson_params
-    kwant_system
-    kwant_params_fn
-    gates
+    poisson_system: class instance
+    Discretized poisson system builder
+    
+    poisson_params: dict
+    Parameters necessary to calculate potential 
+        linear problem, site_coords, site_indices
+    
+    kwant_system: class instance
+    Discrete Kwant system builder. 
+    
+    kwant_params_fn: callable
+    Function to update the kwant parameters such as potential energy.
+    
+    gates: list of strings
+    Gate names
 
     Returns
     -------
-    base_ham
-    hamiltonian_V
+    base_ham: scipy sparse coo matrix
+    Non-linear part of tight binding Hamiltonian
+    
+    hamiltonian_V: dict
+    sparse coo matrices labelled with the corresponding gate name.
     """
     voltages = {}
 
@@ -94,11 +99,20 @@ def hamiltonian(
 
     Parameters
     ----------
-    kwant_system: kwant builder
-    linear_terms:
-    linear_coefficients: dictionary with voltages for each gate
-    params_fn: position dep function describing trijunction
-    params: dictionary with parameters for the Hamiltonian
+    kwant_system: class instance
+    Discretized Kwant system builder
+    
+    linear_terms: dict of 
+    Sparse coo matrices labelled with the corresponding gate name.
+    
+    linear_coefficients: dict
+    Gate voltages
+    
+    params_fn: callable
+    Function to update the parameters in the Kwant system.
+    
+    params: dict
+    Parameters of the tight binding Hamiltonian.
 
     Returns
     -------

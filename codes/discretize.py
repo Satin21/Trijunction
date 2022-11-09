@@ -13,11 +13,6 @@ from layout import (
 )
 
 
-def check_grid(A, B):
-    if A % B:
-        return A % B
-    return B
-
 
 def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     """
@@ -90,12 +85,12 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     height = thickness["twoDEG"] / 2
 
-    def check_grid(A, B):
+    def _consistent_grid(A, B):
         if A % B:
             return A % B
         return B
 
-    lattice_constant = check_grid(thickness["dielectric"], grid_spacing["dielectric"])
+    lattice_constant = _consistent_grid(thickness["dielectric"], grid_spacing["dielectric"])
 
     layout.add_layer(
         SimpleChargeLayer(
@@ -108,7 +103,7 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     height += thickness["dielectric"]
 
-    lattice_constant = check_grid(thickness["gates"], grid_spacing["gate"])
+    lattice_constant = _consistent_grid(thickness["gates"], grid_spacing["gate"])
 
     layout.add_layer(
         OverlappingGateLayer(
@@ -124,7 +119,7 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     height += thickness["gates"]
 
-    lattice_constant = check_grid(thickness["dielectric"], grid_spacing["dielectric"])
+    lattice_constant = _consistent_grid(thickness["dielectric"], grid_spacing["dielectric"])
 
     layout.add_layer(
         SimpleChargeLayer(
@@ -140,7 +135,7 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
     height += thickness["dielectric"]
     thickness_accumulation_gate = 2
 
-    grid_spacing = check_grid(thickness_accumulation_gate, grid_spacing["gate"])
+    grid_spacing = _consistent_grid(thickness_accumulation_gate, grid_spacing["gate"])
 
     layout.add_layer(
         PlanarGateLayer(
@@ -247,3 +242,10 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
         )
 
     return layout.build()
+
+def _consistent_grid(A, B):
+    """Return the grid spacing for a region that captures its full size. 
+    A is typically the region thickness and B is the grid spacing."""
+    if A % B:
+        return A % B
+    return B

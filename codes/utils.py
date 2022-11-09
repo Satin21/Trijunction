@@ -3,12 +3,10 @@ import numpy as np
 from codes.constants import voltage_keys, scale, majorana_pair_indices
 from scipy.linalg import svd
 import scipy.sparse.linalg as sla
-from shapely.geometry.polygon import Polygon
 import kwant
 import kwant.linalg.mumps as mumps
 from scipy.sparse import identity
-import collections
-import matplotlib.pyplot as plt
+from collections.abc import Mapping
 
 dirname = os.path.dirname(__file__)
 sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
@@ -16,8 +14,16 @@ from utility import wannier_basis
 
 # https://stackoverflow.com/a/3233356
 def dict_update(d, u):
+    """
+    Update parent dictionary with many child branches inside
+    
+    d: dict
+    Parent dictionary
+    u: dict
+    Child dictionary 
+    """
     for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
+        if isinstance(v, Mapping):
             d[k] = dict_update(d.get(k, {}), v)
         else:
             d[k] = v
@@ -25,6 +31,7 @@ def dict_update(d, u):
 
 
 class LuInv(sla.LinearOperator):
+    """Inverse of a matrix using LU decomposition"""
     def __init__(self, A):
         inst = mumps.MUMPSContext()
         inst.analyze(A, ordering="pord")
@@ -69,6 +76,11 @@ def eigsh(
 
 
 def projected_operator(operator, eigenstates):
+    """Projects the eigenstates on to the positions of the Kwant lattice which is chosen by the user.
+    
+    operator: kwant.operator.Density or ndarray
+    eigenstates: ndarray
+    """
     if not isinstance(operator, np.ndarray):
         operator_diagonal = operator.tocoo().diagonal()
     else:
@@ -88,6 +100,13 @@ def projected_operator(operator, eigenstates):
 
 
 def order_wavefunctions(pair):
+    """
+    Return indices to shuffle the Majorana wavefunction in Wannier basis based on the pair to be coupled.
+    
+    Pair: str
+    For instance 'left-right', 'left-top' or 'right-top'
+    
+    """
     # shuffle the wavwfunctions based on the Majorana pairs to be optimized
     pair_indices = majorana_pair_indices[pair].copy()
     pair_indices.append(list(set(range(3)) - set(pair_indices))[0])
@@ -97,6 +116,17 @@ def order_wavefunctions(pair):
 
 
 def wannierize(tightbindingsystem, eigenstates):
+    """
+    Return the Majorana wavefunctions in the Wannier basis which are maximally localized orthogonal functions.
+    
+    Parameters:
+    ----------
+    tightbindingsystem: class instance
+    Discretized Kwant system
+    
+    eigenstates: ndarray
+    Minimum 6 wavefunctions which are particle and hole-symmetric MBS.
+    """
 
     X_operator = kwant.operator.Density(
         tightbindingsystem, onsite=lambda site: np.eye(4) * site.pos[0]
@@ -131,12 +161,19 @@ def svd_transformation(energies, wave_functions, reference_wave_functions):
 
 def _closest_node(node, nodes):
     """
-    Euclidean distance between a node and array of nodes
+    Return the index of nodes that has shortest euclidean distance to a node.
+    
+    Parameters:
+    ----------
+    node: 1x2 array
+    nodes: nx2 array
+    
+    
     """
     nodes = np.asarray(nodes)
     dist = np.sum((nodes - node) ** 2, axis=1)
     closest = np.where(dist == dist.min())[0]
-    # Previously we used np.argmin which returns the indices corresponding to the first occurrence in case of multiple occurrences of the minimum values. So we changed to np.where. Though we need to choose the extreme nodes no matter x < 0 or X > 0.
+    # Previously we used np.argmin which returns the indices corresponding to the first occurrence in case of multiple occurrences of the minimum values. So we changed to np.where. Though we need to choose the extreme nodes no matter x < 0 or x > 0.
     if len(closest) == 2:
         nns = nodes[closest]
         if np.all(nns[:, 0] < 0):
@@ -150,6 +187,8 @@ def dep_acc_index(
     gates_dict, centers_dict, kwant_sites, angle, a=10e-9, shift=2, spacing=2, npts=5
 ):
     """
+    Returns the indices of the Kwant sites with one site under every gate and a list of sites along 
+    each channel.
     Parameters
     ----------
     gates_dict: dict
@@ -206,12 +245,10 @@ def dep_acc_index(
         ]  # -1 because the first and last vertex in gate_vertices are the same.
         y = gate_pos.T[1][
             :-1
-        ]  # and we avoid counting them twice by not considering the last vertex.
+        ]  # and we avoid counting them twice by neglecting the last vertex.
         centroid = np.array([sum(x) / len(x), sum(y) / len(y)])
         centroids[gate_name] = a * centroid
-        # centroids[gate_name] = (
-        #     a * centroid * np.ones((pts, 2)) +  vector_shift[shift_index[i]] * rotation[shift_index[i]]
-        # )
+
 
     # get indexes in the kwant system
     for key, val in centroids.copy().items():
@@ -219,10 +256,8 @@ def dep_acc_index(
             centroids[f"{key}"] = [
                 _closest_node(val[i], kwant_sites) for i in range(npts)
             ]
-            # centroids.pop(key)
         else:
             centroids[f"{key}"] = [_closest_node(val, kwant_sites)]
-            # centroids.pop(key)
 
     return centroids
 

@@ -19,6 +19,7 @@ def loss(x, *argv):
     """
     Loss function used to optimise the coupling between pairs of MBSs.
     It can be used to optimize volateges or phases.
+    
     Parameters
     ----------
     x: either list or scalar (float)
@@ -92,8 +93,8 @@ def shape_loss(x, *argv):
     Checks whether the potential shape is optimum and return the difference to the reference potential
     otherwise
 
-    Input
-    -----
+    Parameters
+    ----------
     x: 1xn array
     Input voltages
 
@@ -114,7 +115,7 @@ def shape_loss(x, *argv):
     # print(x)
 
     pair = argv[0]
-    system, linear_terms, _ = argv[1]
+    system, linear_terms = argv[1]
     indices = argv[2]
 
     voltages = voltage_dict(x)
@@ -141,46 +142,50 @@ def wavefunction_loss(x, *argv):
     """
     Loss function based on the amplitude of wavefunctions.
 
-    Input
-    -----
+    Parameters
+    ----------
     x: 1xn array or nx3 array
+    
     When x is a 1d array, it is considered to be the gate voltages.
-    Arguments needed specific to this case as follows:
+    Arguments needed specific to this case are as follows:
         system: Sparse coo matrix
         Kwant tight binding Hamiltonian.
-
-        params: dict
-        Parameters of the Majorana Hamiltonian
 
         linear_terms: list of sparse coo matrices
         Each matrix contains along the diagonal the change in the potential energy for a unit change in
         voltage of a gate.
 
-        f_params: callable
-        Updates the parameters in the Kwant Hamiltonian such as potential and the phases.
-
         reference_wavefunctions: nx6 array
         Maximally localized Wannier functions that acts as a good orthogonal basis to compute an
         effective Hamiltonian for Majoranas.
-
+        
+        
 
     When x is a nx3 array, it is considered to be wavefunctions. In this case, the function
     needs three wavefunctions corresponding to the energies closest to zero which are nevertheless Majoranas.
     Arguments needed specific to this case are as follows:
-        indices: dict
-        Indices of the Kwant system coordinates where the potential  is checked whether depleted or accumulated.
+    
+        wfs: nx3 array
+        Majorana wavefunctions
+        
 
     pair: list
         List containing strings of the sides to be coupled, e.g. `['left', 'right']`
+    
+    indices: dict
+        Values are the indices corresponding to the position at which the and wavefunction probability is evaluated.
+        Keys are the region names. Channel indices are represented as `left0`, `right0`, `top0`  whereas regions below the 
+        gates  are represented as `left_1`, `right_1`, `top_1` (with an underscore). Please make sure that the points along
+        the channel to be disconnected is not very close to the center of the trijunction so that it doesn't conflict with
+        the points along the channels to be connected.
+
+    weights: list
+        scaling coefficient for elements in the loss function
 
     Other arguments needed commonly for the above two cases include:
 
-    ci: int
-    Confidence interval (%) for the relative magnitude of the wavefunction density across two channels to be coupled.
-
     indices: dict
-    Values are the indices corresponding to the position at which the and wavefunction probability is evaluated.
-    Keys are the region names. Channel indices are represented as `left0`, `right0`, `top0`, whereas regions below the gates are represented as `left_1`, `right_1`, `top_1` (with an underscore).
+         
 
     weights: tuple
     Weights for the elements in the cost function

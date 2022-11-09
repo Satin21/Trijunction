@@ -31,12 +31,23 @@ from Hamiltonian import discrete_system_coordinates
 
 class Trijunction:
     """
-    Class wrapping all objects associated to a trijunction
+    Class wrapping all objects associated with a trijunction
     """
 
     def __init__(self, config, optimize_phase_pairs=["left-right"], solve_poisson=True):
         """
         Initialisation requires only a `config` dictionary.
+        
+        Config: dict
+        Dictionary of Trijunction design parameters as stored in the config.json file.
+        
+        optimize_phase_pairs: list of str (optional)
+        When empty, none of the pairs are optimized for optimal phase.
+        Can specify more than one pair and optimal phase for every specified pair are stored.
+        
+        solve_poisson: boolean (optional)
+        Condition to compute poisson system. 
+        If false, only the Kwant system is computed which is faster than computing a Poisson system.
         """
         self.scale = scale
         self.config = config
@@ -135,6 +146,9 @@ class Trijunction:
     def flat_potential(self, value=0):
         """
         Dictionary with a flat potential in the scattering region.
+        
+        value: float
+        Potential energy of sites in the Kwant lattice.
         """
         scattering_sites = {}
         for site in self.trijunction.sites:
@@ -275,8 +289,10 @@ class Trijunction:
         )
 
     def compute_topological_gap(self):
-        ## Check whether all the nanowires has equal width and topological gap
-        ## If not, most probably the kwant system is built wrongly.
+        """
+        Check whether all the nanowires has equal width and topological gap
+        If not, most probably the kwant system is built wrongly.
+        """
         base_params = junction_parameters()
         base_params.update(potential=self.flat_potential(2))
         ham = self.trijunction.hamiltonian_submatrix(

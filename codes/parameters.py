@@ -12,7 +12,7 @@ def voltage_dict(x, dirichlet=True):
     voltages
 
     dirichlet: bool
-    Whether to add dirichlet gates
+    Condition to add dirichlet gates
     """
 
     voltages = {key: x[index] for key, index in voltage_keys.items()}
@@ -25,7 +25,17 @@ def voltage_dict(x, dirichlet=True):
 
 
 def pair_voltages(initial=(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5e-3):
-    """ """
+    """ 
+    Returns voltage dictionary for every pair 
+    
+    Parameters:
+    ----------
+    initial: tuple or list with 4 elements
+    
+    depleted: float
+    Value for the gate associated with the region to be depleted
+    
+    """
     pairs = ["right-top", "left-top", "left-right"]
     voltages = OrderedDict()
     initial_condition = OrderedDict()
@@ -84,6 +94,14 @@ def phase_pairs(pair, phi):
 
 
 def dict_update(d, u):
+    """
+    Update parent dictionary with many child branches inside
+    
+    d: dict
+    Parent dictionary
+    u: dict
+    Child dictionary 
+    """
     # https://stackoverflow.com/a/3233356
     for k, v in u.items():
         if isinstance(v, Mapping):
