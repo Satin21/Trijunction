@@ -19,7 +19,7 @@ from codes.parameters import (
 from codes.gate_design import gate_coords
 from codes.finite_system import kwantsystem
 from codes.discretize import discretize_heterostructure
-from codes.optimization import loss, shape_loss, soft_threshold_loss
+from codes.optimization import loss, shape_loss, wavefunction_loss
 from codes.constants import rounding_limit
 
 dirname = os.path.dirname(__file__)
@@ -165,7 +165,7 @@ class Trijunction:
             self.optimal_phases[pair] = phase_pairs(pair, np.pi * phase_sol.x)
 
     def voltage_initial_conditions(
-        self, guess=(-3e-3, -3e-3, -3e-3, 10e-3), ci=10, wf_amp=1
+        self, guess=(-3e-3, -3e-3, -3e-3, 10e-3), ci=50, weigths=(1, 1, 10)
     ):
         """
         Find initial condition for the voltages based on the soft-threshold.
@@ -174,19 +174,33 @@ class Trijunction:
         for pair in self.optimize_phase_pairs:
             args = (
                 pair.split("-"),
-                (self.base_ham, self.linear_terms, (ci, wf_amp)),
+                (self.base_ham, self.linear_terms, (ci, weigths)),
                 self.indices,
             )
 
-            sol = minimize(
-                fun=soft_threshold_loss,
+            step_1 = minimize(
+                fun=shape_loss,
                 x0=guess,
                 args=args,
                 method="COBYLA",
-                options={"rhobeg": 1e-2},
+                options={"rhobeg": 1e-3},
             )
 
-            initial_conditions[pair] = sol.x
+            argv = (
+                pair.split('-'),
+                (self.base_ham, self.linear_terms, self.mlwf[order_wavefunctions(pair)]),
+                self.indices,
+                (ci, weigths)
+            )
+            step_2 = minimize(
+                fun=wavefunction_loss,
+                x0=step_1.x,
+                args=argv,
+                method="COBYLA",
+                options={"rhobeg": 1e-3},
+            )
+
+            initial_conditions[pair] = step_2.x
         self.initial_conditions = initial_conditions
 
     def dep_acc_indices(self, indices=None):
