@@ -40,11 +40,11 @@ def loss(x, *argv):
     params = argv[1]
     system, linear_terms, f_params, reference_wavefunctions = argv[2]
 
-    print(x)
+    # print(x)
 
     if isinstance(x, (list, np.ndarray)):
         params.update(voltage_dict(x))
-    elif isinstance(x, float):
+    else:
         params.update(phase_pairs(pair, x * np.pi))
 
     linear_ham, full_hamiltonian = hamiltonian(system, linear_terms, f_params, **params)
@@ -60,7 +60,7 @@ def loss(x, *argv):
 
     desired /= topological_gap
     undesired /= topological_gap
-    # prints(desired, undesired)
+    
 
     # Uncomment this in case of soft-thresholding
     cost = 0
@@ -75,11 +75,13 @@ def loss(x, *argv):
         cost += shape_loss(x, *args)
 
         weights = [1, 1, 1e2]
-        args = (pair.split("-"), params["dep_acc_index"], (10, weights))
+        args = (pair.split("-"), params["dep_acc_index"], weights)
 
         cost += wavefunction_loss(wavefunctions, *args)
-
+    
     cost += sum([-desired, undesired])
+    
+    # print(desired, undesired)
 
     return cost
 
@@ -178,8 +180,7 @@ def wavefunction_loss(x, *argv):
 
     indices: dict
     Values are the indices corresponding to the position at which the and wavefunction probability is evaluated.
-    Keys are the region names. Channel indices are represented as `left0`, `right0`, `top0`, whereas regions below
-    the gates are represented as `left_1`, `right_1`, `top_1` (with an underscore).
+    Keys are the region names. Channel indices are represented as `left0`, `right0`, `top0`, whereas regions below the gates are represented as `left_1`, `right_1`, `top_1` (with an underscore).
 
     weights: tuple
     Weights for the elements in the cost function
@@ -190,16 +191,15 @@ def wavefunction_loss(x, *argv):
     """
     # unpack arguments
     if len(x.shape) == 1:
-        print(x)
-
+        
+        # print(x)
+        
         pair = argv[0]
         system, linear_terms, reference_wavefunctions = argv[1]
         indices = argv[2]
-        ci, weights = argv[3]
+        weights = argv[3]
 
-        _, full_hamiltonian = hamiltonian(
-            system, linear_terms, **voltage_dict(x)
-        )
+        _, full_hamiltonian = hamiltonian(system, linear_terms, None, **voltage_dict(x))
 
         energies, wfs = eigsh(
             full_hamiltonian.tocsc(),
@@ -209,7 +209,7 @@ def wavefunction_loss(x, *argv):
         )
 
     else:
-        pair, indices, (ci, weights) = argv
+        pair, indices, weights = argv
         wfs = x
 
     amplitude = lambda i: _amplitude(pair, indices, density(wfs[:, i]))
@@ -231,41 +231,17 @@ def wavefunction_loss(x, *argv):
 
     sum_desired = np.sum(desired, axis=1)
 
-    rel_amplitude = sum_desired[0] / sum_desired[1]
-
-    rel_des_undes = []
-    for i, gate in enumerate(pair):
-        rel_des_undes.append(
-            [sum_desired[i] / undesired[gate + "_" + str(j + 1)] for j in range(2)]
-        )
-
     undesired = np.hstack(list(undesired.values()))
     uniformity = np.abs(np.diff(desired, axis=0))
 
-    ## avoid optimizing the following elements more than needed
-    undesired[np.where(undesired > 1e3)] = 1e3
-    uniformity[np.where(uniformity < 1e-6)] = 1e-6
-
-    # print(sum_desired, uniformity, np.hstack(rel_des_undes))
-
-    if (np.abs(1 - np.sum(rel_amplitude)) < ci / 100) and np.all(
-        np.hstack(rel_des_undes) > 10
-    ):
-        try:
-            desired_coupling, _ = majorana_loss(energies, wfs, reference_wavefunctions)
-            # print(desired_coupling)
-            # print(f"coupling:{desired_coupling:.3e}")
-            if desired_coupling > (topological_gap * 1 / 100):
-                return -1
-        except UnboundLocalError:
-            pass
-
+    # print(sum_desired, uniformity, undesired)
+    
     wf_cost = (
-        -weights[0] * sum(sum_desired)
+        - weights[0] * sum(sum_desired)
         + weights[1] * np.sum(uniformity)
         + weights[2] * np.sum(undesired)
     )
-
+    
     return wf_cost
 
 def density(wf):

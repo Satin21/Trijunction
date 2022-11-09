@@ -21,9 +21,7 @@ from scipy.optimize import minimize, minimize_scalar
 
 
 def optimize_phase_voltage(argv, config=None):
-    
-    
-    
+
     dirname = os.path.dirname(__file__)
     
     with open(dirname + "/" + "config.json", "r") as f:
@@ -59,106 +57,96 @@ def optimize_phase_voltage(argv, config=None):
 
     params = parameters.junction_parameters()
     params.update(potential=system.flat_potential())
-
+    
     index = system.indices.copy()
 
     # remove 50% of the points from the channel to be depleted that is closest to the center.
-    depleted_channel = list(set(sides) - set(pair.split("-")))[0]
+    depleted_channel = list(set(sides)-set(pair.split('-')))[0]
     depleted_indices = index[depleted_channel]
-    index[depleted_channel] = depleted_indices[: int(len(depleted_indices) * 50 / 100)]
+    index[depleted_channel]  = depleted_indices[:int(len(depleted_indices)*50/100)]
+    
+    params['dep_acc_index'] = index
+    
+    initial_condition = (-3e-3, -3e-3, -3e-3, 10e-3)
+    
+    args = (pair.split('-'),
+            (system.base_ham, system.linear_terms),
+            params['dep_acc_index'], 
+            )
 
-    params["dep_acc_index"] = index
+    sol1 = minimize(shape_loss, 
+             x0=initial_condition, 
+             args=args, 
+             method='trust-constr', 
+             options={'initial_tr_radius':1e-3}
+            )
 
+
+    weights = [1, 1, 1e1]
     args = (
-        pair.split("-"),
-        (system.base_ham, system.linear_terms),
-        params["dep_acc_index"],
+        pair.split('-'),
+        (system.base_ham, 
+         system.linear_terms,
+         system.mlwf[order_wavefunctions(pair)]),
+        params['dep_acc_index'],
+        weights
     )
+    
+    
+    sol2 = minimize(wavefunction_loss, 
+         x0=sol1.x, 
+         args=args, 
+         method='trust-constr',
+         options={
+             'initial_tr_radius': 1e-3
+         }
+        )
+        
+    initial_condition = sol2.x
 
-    initial_condition = (-3e-3, -3e-3, -3e-3, 3e-3)
+    params.update(parameters.voltage_dict(initial_conditions[pair]))
+    
+    args = (pair, 
+            params, 
+            (system.trijunction, 
+             system.linear_terms, 
+             system.f_params,
+             system.mlwf[order_wavefunctions(pair)]
+            )
+           )
 
-    sol1 = minimize(
-        shape_loss,
-        x0=initial_condition,
-        args=args,
-        method="trust-constr",
-        options={"initial_tr_radius": 1e-3},
-    )
+    sol3 = minimize_scalar(loss,
+                            args=args, 
+                            method='bounded',
+                            bounds=(0,2),
+                          )
 
-    print(f"sol1:{sol1.x}")
-
-    ci, weights = 50, [1, 1, 1e1]
-    args = (
-        (
-            system.base_ham,
-            params,
-            system.linear_terms,
-            system.f_params,
-            system.mlwf[order_wavefunctions(pair)],
-        ),
-        (pair.split("-"), ci, weights),
-    )
-
-    sol2 = minimize(
-        wavefunction_loss,
-        x0=sol1.x,
-        args=args,
-        method="trust-constr",
-        options={
-            "initial_tr_radius": 1e-3,
-            "verbose": 2,
-        },
-    )
-
-    initial_condition = parameters.voltage_dict(sol2.x)
-    print(f"sol2:{sol2.x}")
-
-    params.update(parameters.voltage_dict(sol2.x))
-
-    args = (
-        pair,
-        params,
-        (
-            system.trijunction,
-            system.linear_terms,
-            system.f_params,
-            system.mlwf[order_wavefunctions(pair)],
-        ),
-    )
-
-    sol3 = minimize_scalar(
-        loss, args=args, method="bounded", bounds=(0, 2)
-    )
-
-    phase = sol3.x * np.pi
-
-    params.update(parameters.phase_pairs(pair, phase))
-
+    
+    phase = sol3.x
+    
+    params.update(parameters.phase_pairs(pair, phase*np.pi))
+    
     base_ham = system.trijunction.hamiltonian_submatrix(
         sparse=True, params=system.f_params(**params)
     )
 
-    args = (
-        pair,
-        params,
-        (
-            base_ham,
-            system.linear_terms,
-            system.f_params,
-            system.mlwf[order_wavefunctions(pair)],
-        ),
-    )
-
-    sol4 = minimize(
-        loss,
-        x0=sol2.x,
-        args=args,
-        method="trust-constr",
-        options={
-            "initial_tr_radius": 1e-3,
-            "verbose": 2,
-        },
-    )
+    args = (pair, 
+            params, 
+            (base_ham, system.linear_terms, 
+             None,
+             system.mlwf[order_wavefunctions(pair)]
+            ),
+           )
+    
+    sol4 = minimize(loss, 
+             x0=initial_conditions[pair].x, 
+             args=args, 
+             method='trust-constr', 
+             options={
+                 'initial_tr_radius':1e-3,
+             }
+            )
+    
 
     voltages = parameters.voltage_dict(sol4.x)
 
@@ -200,12 +188,18 @@ def optimize_phase_voltage(argv, config=None):
 
     else:
         result = {
+            "initial_condition": initial_condition,
             "phase": phase,
             "voltages": voltages,
             "couplings": couplings,
-            "pair": pair,
+            "sol1": sol1,
+            "sol2": sol2,
+            "sol3": sol3,
+            "sol4": sol4
         }
 
-    json.dump(result, open(filepath + "/" + pair + "_" + str(identifier) + ".json", "w"))
+    pickle.dump(result, 
+                open(filepath + "/" + pair + "_" + str(identifier) + ".pkl", "w"), 
+               protocol=pickle.HIGHEST_PROTOCOL)
 
     return phase, voltages
