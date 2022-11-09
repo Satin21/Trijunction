@@ -168,8 +168,8 @@ def wavefunction_loss(x, *argv):
         indices: dict
         Indices of the Kwant system coordinates where the potential  is checked whether depleted or accumulated.
 
-    pair: str
-        Pair to be coupled. Either 'left-right' or 'right-top' or 'left-top'
+    pair: list
+        List containing strings of the sides to be coupled, e.g. `['left', 'right']`
 
     Other arguments needed commonly for the above two cases include:
 
@@ -192,14 +192,14 @@ def wavefunction_loss(x, *argv):
     if len(x.shape) == 1:
         print(x)
 
-        system, params, linear_terms, f_params, reference_wavefunctions = argv[0]
-        pair, ci, weights = argv[1]
+        pair = argv[0]
+        system, linear_terms, reference_wavefunctions = argv[1]
+        indices = argv[2]
+        ci, weights = argv[3]
 
-        indices = params["dep_acc_index"]
-
-        params.update(voltage_dict(x))
-
-        _, full_hamiltonian = hamiltonian(system, linear_terms, f_params, **params)
+        _, full_hamiltonian = hamiltonian(
+            system, linear_terms, **voltage_dict(x)
+        )
 
         energies, wfs = eigsh(
             full_hamiltonian.tocsc(),
