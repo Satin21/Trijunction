@@ -1,0 +1,14 @@
+name: python3
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10*
+  - numpy=1.22*
+  - scipy=1.8*
+  - kwant>=1.4.3
+  - shapely
+  - tinyarray
+  # Plotting
+  - matplotlib-base=3.5*
+  - pip:
+    - git+https://gitlab.kwant-project.org/asantosnet/Poisson_Solver.git

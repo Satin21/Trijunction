@@ -1,7 +1,6 @@
 import sys, os
 import numpy as np
 import tinyarray as ta
-from tqdm import tqdm
 from kwant.builder import FiniteSystem
 
 dirname = os.path.dirname(__file__)
@@ -59,7 +58,7 @@ def linear_Hamiltonian(
     charges = {}
 
     # check the effect of varying only one gate
-    for gate in tqdm(gates):
+    for gate in gates:
 
         voltages_t = dict.fromkeys(voltages, 0.0)
 
