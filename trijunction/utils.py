@@ -147,6 +147,14 @@ def wannierize(tightbindingsystem, eigenstates):
 
     return mlwf
 
+def density(wf):
+    """
+    Works similar to the Kwant density operator; takes particle-hole and spin degrees of freedom into account.
+    """
+    density = np.zeros(int(len(wf) / 4))
+    for i in range(len(density)):
+        density[i] = np.sum(np.abs(wf[4 * i : 4 * (i + 1)]) ** 2)
+    return density
 
 def svd_transformation(energies, wave_functions, reference_wave_functions):
     """
