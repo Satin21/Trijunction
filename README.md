@@ -39,7 +39,8 @@ This system does not have a unique solution and have many local minimas, hence f
 Note: Please take a look at the example notebook in the home folder for further reference.
 
 ### Contributors
-This project is an extension of the master thesis of [Juan Daniel Torres](https://quantumtinkerer.tudelft.nl/members/juan-daniel/) at the [quantum tinkerer](https://quantumtinkerer.tudelft.nl/) group at the Delft university of technology. Juan still actively contributes to this project under the supervision of [Anton Akhmerov](https://antonakhmerov.org/).
+[Juan Daniel Torres](https://quantumtinkerer.tudelft.nl/members/juan-daniel/) 
+[Anton Akhmerov](https://antonakhmerov.org/)
 
 ### Contribute
 This project is still under active development. We are exploring different configurations of trijunction geometry and benchmarking our optimization approach. If you find some issues in the code, please raise an issue or if you would like to contribute, please feel free to contact me at rksathish09@gmail.com.
