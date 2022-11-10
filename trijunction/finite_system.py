@@ -178,6 +178,7 @@ def kwantsystem(config, boundaries, nw_centers, scale=1e-8):
 
 def get_potential(potential):
     """Return a callable for the Kwant.hamiltonian.submatrix function to obtain potential at a given site"""
+
     def f(x, y):
         return potential[ta.array(np.round(np.array([x, y]) / scale, rounding_limit))]
 

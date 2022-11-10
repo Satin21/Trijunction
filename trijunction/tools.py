@@ -4,7 +4,7 @@ import tinyarray as ta
 from kwant.builder import FiniteSystem
 
 dirname = os.path.dirname(__file__)
-sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
+sys.path.append(os.path.realpath(os.path.join(dirname, "../spin-qubit/")))
 from potential import gate_potential
 
 
@@ -13,24 +13,24 @@ def linear_Hamiltonian(
 ):
     """
     Find matrices using which the onsite potential energy term in the tight binding Hamiltonian
-    can be written as linear combinations with voltages as coefficients. 
+    can be written as linear combinations with voltages as coefficients.
     A flat potential is set everywhere, and one gate is varied at a time.
 
     Parameters
     ----------
     poisson_system: class instance
     Discretized poisson system builder
-    
+
     poisson_params: dict
-    Parameters necessary to calculate potential 
+    Parameters necessary to calculate potential
         linear problem, site_coords, site_indices
-    
+
     kwant_system: class instance
-    Discrete Kwant system builder. 
-    
+    Discrete Kwant system builder.
+
     kwant_params_fn: callable
     Function to update the kwant parameters such as potential energy.
-    
+
     gates: list of strings
     Gate names
 
@@ -38,7 +38,7 @@ def linear_Hamiltonian(
     -------
     base_ham: scipy sparse coo matrix
     Non-linear part of tight binding Hamiltonian
-    
+
     hamiltonian_V: dict
     sparse coo matrices labelled with the corresponding gate name.
     """
@@ -100,16 +100,16 @@ def hamiltonian(
     ----------
     kwant_system: class instance
     Discretized Kwant system builder
-    
-    linear_terms: dict of 
+
+    linear_terms: dict of
     Sparse coo matrices labelled with the corresponding gate name.
-    
+
     linear_coefficients: dict
     Gate voltages
-    
+
     params_fn: callable
     Function to update the parameters in the Kwant system.
-    
+
     params: dict
     Parameters of the tight binding Hamiltonian.
 

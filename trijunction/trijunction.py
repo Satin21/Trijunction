@@ -22,7 +22,7 @@ from .discretize import discretize_heterostructure
 from .optimization import loss, shape_loss, wavefunction_loss
 
 dirname = os.path.dirname(__file__)
-sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
+sys.path.append(os.path.realpath(os.path.join(dirname, "../spin-qubit/")))
 
 from potential import gate_potential, linear_problem_instance
 from Hamiltonian import discrete_system_coordinates
@@ -36,16 +36,16 @@ class Trijunction:
     def __init__(self, config, optimize_phase_pairs=["left-right"], solve_poisson=True):
         """
         Initialisation requires only a `config` dictionary.
-        
+
         Config: dict
         Dictionary of Trijunction design parameters as stored in the config.json file.
-        
+
         optimize_phase_pairs: list of str (optional)
         When empty, none of the pairs are optimized for optimal phase.
         Can specify more than one pair and optimal phase for every specified pair are stored.
-        
+
         solve_poisson: boolean (optional)
-        Condition to compute poisson system. 
+        Condition to compute poisson system.
         If false, only the Kwant system is computed which is faster than computing a Poisson system.
         """
         self.scale = scale
@@ -145,7 +145,7 @@ class Trijunction:
     def flat_potential(self, value=0):
         """
         Dictionary with a flat potential in the scattering region.
-        
+
         value: float
         Potential energy of sites in the Kwant lattice.
         """
@@ -200,10 +200,14 @@ class Trijunction:
             )
 
             argv = (
-                pair.split('-'),
-                (self.base_ham, self.linear_terms, self.mlwf[order_wavefunctions(pair)]),
+                pair.split("-"),
+                (
+                    self.base_ham,
+                    self.linear_terms,
+                    self.mlwf[order_wavefunctions(pair)],
+                ),
                 self.indices,
-                (ci, weigths)
+                (ci, weigths),
             )
             step_2 = minimize(
                 fun=wavefunction_loss,
@@ -299,7 +303,9 @@ class Trijunction:
         )
 
         evals = eigsh(ham, k=12, sigma=0, return_eigenvectors=False)
-        assert np.all(np.abs(np.diff(evals[:3])) < 1e-9)  # first three states closest to zero are topo gap
+        assert np.all(
+            np.abs(np.diff(evals[:3])) < 1e-9
+        )  # first three states closest to zero are topo gap
         self.topological_gap = evals[-1]
 
     def check_symmetry(self, voltages_list):

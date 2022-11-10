@@ -2,7 +2,7 @@ import numpy as np
 import sys, os
 
 dirname = os.path.dirname(__file__)
-sys.path.append(os.path.realpath(os.path.join(dirname, '../spin-qubit/')))
+sys.path.append(os.path.realpath(os.path.join(dirname, "../spin-qubit/")))
 
 from layout import (
     Layout,
@@ -11,7 +11,6 @@ from layout import (
     SimpleChargeLayer,
     TwoDEGLayer,
 )
-
 
 
 def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
@@ -90,7 +89,9 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
             return A % B
         return B
 
-    lattice_constant = _consistent_grid(thickness["dielectric"], grid_spacing["dielectric"])
+    lattice_constant = _consistent_grid(
+        thickness["dielectric"], grid_spacing["dielectric"]
+    )
 
     layout.add_layer(
         SimpleChargeLayer(
@@ -119,7 +120,9 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     height += thickness["gates"]
 
-    lattice_constant = _consistent_grid(thickness["dielectric"], grid_spacing["dielectric"])
+    lattice_constant = _consistent_grid(
+        thickness["dielectric"], grid_spacing["dielectric"]
+    )
 
     layout.add_layer(
         SimpleChargeLayer(
@@ -243,8 +246,9 @@ def discretize_heterostructure(config, boundaries, gate_vertices, gate_names):
 
     return layout.build()
 
+
 def _consistent_grid(A, B):
-    """Return the grid spacing for a region that captures its full size. 
+    """Return the grid spacing for a region that captures its full size.
     A is typically the region thickness and B is the grid spacing."""
     if A % B:
         return A % B

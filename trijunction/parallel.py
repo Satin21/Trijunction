@@ -23,7 +23,7 @@ from scipy.optimize import minimize, minimize_scalar
 def optimize_phase_voltage(argv, config=None):
 
     dirname = os.path.dirname(__file__)
-    
+
     with open(dirname + "/" + "config.json", "r") as f:
         config = json.load(f)
 
@@ -47,106 +47,101 @@ def optimize_phase_voltage(argv, config=None):
         for local_config in change_config:
             config = dict_update(config, local_config)
 
-    filepath = os.path.realpath(os.path.join(dirname, '../data/'))
-    
+    filepath = os.path.realpath(os.path.join(dirname, "../data/"))
+
     system = trijunction.Trijunction(config, optimize_phase_pairs=[])
-    
 
     phase, voltage, coupling = {}, {}, {}
 
-
     params = parameters.junction_parameters()
     params.update(potential=system.flat_potential())
-    
+
     index = system.indices.copy()
 
     # remove 50% of the points from the channel to be depleted that is closest to the center.
-    depleted_channel = list(set(sides)-set(pair.split('-')))[0]
+    depleted_channel = list(set(sides) - set(pair.split("-")))[0]
     depleted_indices = index[depleted_channel]
-    index[depleted_channel]  = depleted_indices[:int(len(depleted_indices)*50/100)]
-    
-    params['dep_acc_index'] = index
-    
+    index[depleted_channel] = depleted_indices[: int(len(depleted_indices) * 50 / 100)]
+
+    params["dep_acc_index"] = index
+
     initial_condition = (-3e-3, -3e-3, -3e-3, 10e-3)
-    
-    args = (pair.split('-'),
-            (system.base_ham, system.linear_terms),
-            params['dep_acc_index'], 
-            )
 
-    sol1 = minimize(shape_loss, 
-             x0=initial_condition, 
-             args=args, 
-             method='trust-constr', 
-             options={'initial_tr_radius':1e-3}
-            )
+    args = (
+        pair.split("-"),
+        (system.base_ham, system.linear_terms),
+        params["dep_acc_index"],
+    )
 
+    sol1 = minimize(
+        shape_loss,
+        x0=initial_condition,
+        args=args,
+        method="trust-constr",
+        options={"initial_tr_radius": 1e-3},
+    )
 
     weights = [1, 1, 1e1]
     args = (
-        pair.split('-'),
-        (system.base_ham, 
-         system.linear_terms,
-         system.mlwf[order_wavefunctions(pair)]),
-        params['dep_acc_index'],
-        weights
+        pair.split("-"),
+        (system.base_ham, system.linear_terms, system.mlwf[order_wavefunctions(pair)]),
+        params["dep_acc_index"],
+        weights,
     )
-    
-    
-    sol2 = minimize(wavefunction_loss, 
-         x0=sol1.x, 
-         args=args, 
-         method='trust-constr',
-         options={
-             'initial_tr_radius': 1e-3
-         }
-        )
-        
+
+    sol2 = minimize(
+        wavefunction_loss,
+        x0=sol1.x,
+        args=args,
+        method="trust-constr",
+        options={"initial_tr_radius": 1e-3},
+    )
+
     initial_condition = sol2.x
 
     params.update(parameters.voltage_dict(initial_condition))
-    
-    args = (pair, 
-            params, 
-            (system.trijunction, 
-             system.linear_terms, 
-             system.f_params,
-             system.mlwf[order_wavefunctions(pair)]
-            )
-           )
 
-    sol3 = minimize_scalar(loss,
-                            args=args, 
-                            method='bounded',
-                            bounds=(0,2),
-                          )
+    args = (
+        pair,
+        params,
+        (
+            system.trijunction,
+            system.linear_terms,
+            system.f_params,
+            system.mlwf[order_wavefunctions(pair)],
+        ),
+    )
 
-    
+    sol3 = minimize_scalar(
+        loss,
+        args=args,
+        method="bounded",
+        bounds=(0, 2),
+    )
+
     phase = sol3.x
-    
-    params.update(parameters.phase_pairs(pair, phase*np.pi))
-    
+
+    params.update(parameters.phase_pairs(pair, phase * np.pi))
+
     base_ham = system.trijunction.hamiltonian_submatrix(
         sparse=True, params=system.f_params(**params)
     )
 
-    args = (pair, 
-            params, 
-            (base_ham, system.linear_terms, 
-             None,
-             system.mlwf[order_wavefunctions(pair)]
-            ),
-           )
-    
-    sol4 = minimize(loss, 
-             x0=sol2.x, 
-             args=args, 
-             method='trust-constr', 
-             options={
-                 'initial_tr_radius':1e-3,
-             }
-            )
-    
+    args = (
+        pair,
+        params,
+        (base_ham, system.linear_terms, None, system.mlwf[order_wavefunctions(pair)]),
+    )
+
+    sol4 = minimize(
+        loss,
+        x0=sol2.x,
+        args=args,
+        method="trust-constr",
+        options={
+            "initial_tr_radius": 1e-3,
+        },
+    )
 
     voltages = parameters.voltage_dict(sol4.x)
 
@@ -172,7 +167,9 @@ def optimize_phase_voltage(argv, config=None):
     kwant.plotter.density(system.trijunction, wfv, ax=ax)
     ax.set_title(np.round(desired / topological_gap, 3))
 
-    plt.savefig(filepath + "/" + pair + "_" + "wf_" + str(identifier) + ".pdf", format="pdf")
+    plt.savefig(
+        filepath + "/" + pair + "_" + "wf_" + str(identifier) + ".pdf", format="pdf"
+    )
 
     if config == None:
         result = {
@@ -195,11 +192,13 @@ def optimize_phase_voltage(argv, config=None):
             "sol1": sol1,
             "sol2": sol2,
             "sol3": sol3,
-            "sol4": sol4
+            "sol4": sol4,
         }
 
-    pickle.dump(result, 
-                open(filepath + "/" + pair + "_" + str(identifier) + ".pkl", "wb"), 
-               protocol=pickle.HIGHEST_PROTOCOL)
+    pickle.dump(
+        result,
+        open(filepath + "/" + pair + "_" + str(identifier) + ".pkl", "wb"),
+        protocol=pickle.HIGHEST_PROTOCOL,
+    )
 
     return phase, voltages

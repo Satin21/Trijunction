@@ -26,16 +26,16 @@ def voltage_dict(x, dirichlet=True):
 
 
 def pair_voltages(initial=(-1.5e-3, -1.5e-3, -1.5e-3, 8e-3), depleted=-3.5e-3):
-    """ 
-    Returns voltage dictionary for every pair 
-    
+    """
+    Returns voltage dictionary for every pair
+
     Parameters:
     ----------
     initial: tuple or list with 4 elements
-    
+
     depleted: float
     Value for the gate associated with the region to be depleted
-    
+
     """
     pairs = ["right-top", "left-top", "left-right"]
     voltages = OrderedDict()
@@ -69,7 +69,7 @@ def junction_parameters(m_nw=[bands[0]] * 3, bx=0.001):
 
     a = 10e-9
     t = hbar**2 / (2 * 0.023 * electron_mass) * (6.24e18)
-    alpha = 3e-3*a
+    alpha = 3e-3 * a
     Delta = 5e-4
     parameters = dict(
         mus_nw=m_nw,
@@ -97,11 +97,11 @@ def phase_pairs(pair, phi):
 def dict_update(d, u):
     """
     Update parent dictionary with many child branches inside
-    
+
     d: dict
     Parent dictionary
     u: dict
-    Child dictionary 
+    Child dictionary
     """
     # https://stackoverflow.com/a/3233356
     for k, v in u.items():
