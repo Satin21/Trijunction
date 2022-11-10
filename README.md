@@ -10,7 +10,7 @@ git clone --recurse-submodules https://github.com/Satin21/Trijunction.git
 ### Example
 Using a rectangular semicondcutor cavity, we want to couple Majorana fermions which are localized at the ends of a semiconductor nanowire promitized by a superconductor. We discretize the semiconductor device with size of several hundreds of 100nm in three dimensions using finite volume method. We convert any gate geometry to a simulation model, although we currently handle a specific trijunction design as below.
 
-![trijunction](trijunction.pdf)
+![trijunction](figures/trijunction.png)
 
 To start your own simulations, you first need to define a dictionary of device and gate configuration and save it in the `json` format. Please refer to `config.json` file for example. Then you need to create an instance of the Trijunction class with the configuration dictionary as follows:
 ```
@@ -21,7 +21,7 @@ Trijunction class runs several sanity checks to assure that your simulations are
 
 With untuned gate voltages, Majoranas are initially decoupled.
 
-![Decoupled Majoranas](figures/decoupled_wavefunctions.pdf)
+![Decoupled Majoranas](figures/decoupled_wavefunctions.png)
 
 We can then tune the gate voltages to optimize the coupling between any two pair of Majoranas. We used scipy's optimize module to optimize the gates with our own loss function.
 
@@ -31,7 +31,7 @@ scipy.optimize.minimize(trijunction.optimization.loss, args, method='trust-const
 
 This system does not have a unique solution and have many local minimas, making the optimization problem very difficult. Thus, we tried optimizing the gate voltages carefully at multiple stages in order find a global minimum. One such nice result is
 
-![Coupled Majoranas](figures/coupled_wavefunctions.pdf)
+![Coupled Majoranas](figures/coupled_wavefunctions.png)
 
 Note: Please take a look at the example notebook for further reference.
 
