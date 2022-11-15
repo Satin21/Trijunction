@@ -43,7 +43,7 @@ Note: Please take a look at the example notebook in the home folder for further 
 - [Anton Akhmerov](https://antonakhmerov.org/)
 
 ### Contribute
-This project is still under active development. We are exploring different configurations of trijunction geometry and benchmarking our optimization approach. If you find some issues in the code, please raise an issue or if you would like to contribute, please feel free to contact me at rksathish09@gmail.com.
+This project is still actively under development. We are exploring different configurations of trijunction geometry and benchmarking our optimization approach. If you find some issues in the code, please raise an issue or if you would like to contribute, please feel free to contact me at rksathish09@gmail.com.
 
 ### License
 This project is licensed under BSD 2-Clause "Simplified" License.

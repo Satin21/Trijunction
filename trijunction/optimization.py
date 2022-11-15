@@ -19,7 +19,7 @@ def loss(x, *argv):
     """
     Loss function used to optimise the coupling between pairs of MBSs.
     It can be used to optimize volateges or phases.
-
+    
     Parameters
     ----------
     x: either list or scalar (float)
@@ -41,6 +41,7 @@ def loss(x, *argv):
     params = argv[1]
     system, linear_terms, f_params, reference_wavefunctions = argv[2]
 
+
     if isinstance(x, (list, np.ndarray)):
         params.update(voltage_dict(x))
     else:
@@ -55,11 +56,14 @@ def loss(x, *argv):
         return_eigenvectors=True,
     )
 
-    desired, undesired = majorana_loss(energies, wavefunctions, reference_wavefunctions)
+    desired, undesired = majorana_loss(energies, 
+                                       wavefunctions, 
+                                       reference_wavefunctions)
 
     desired /= topological_gap
     undesired /= topological_gap
-
+    
+    
     cost = 0
     if isinstance(x, (list, np.ndarray)):
 
@@ -75,7 +79,6 @@ def loss(x, *argv):
         args = (pair.split("-"), params["dep_acc_index"], weights)
 
         cost += wavefunction_loss(wavefunctions, *args)
-
     cost += sum([-desired, undesired])
 
     return cost
@@ -120,7 +123,7 @@ def shape_loss(x, *argv):
     loss = 0.0
 
     for gate, index in indices.items():
-        diff = np.real(linear_ham[index]) - bands[0]
+        diff = np.real(linear_ham[index])
         if gate in pair:
             if np.any(diff > 0):
                 loss += sum(np.abs(diff[diff > 0]))
@@ -138,7 +141,7 @@ def wavefunction_loss(x, *argv):
     Parameters
     ----------
     x: 1xn array or nx3 array
-
+    
     When x is a 1d array, it is considered to be the gate voltages.
     Arguments needed specific to this case are as follows:
         system: Sparse coo matrix
@@ -151,23 +154,23 @@ def wavefunction_loss(x, *argv):
         reference_wavefunctions: nx6 array
         Maximally localized Wannier functions that acts as a good orthogonal basis to compute an
         effective Hamiltonian for Majoranas.
-
-
+        
+        
 
     When x is a nx3 array, it is considered to be wavefunctions. In this case, the function
     needs three wavefunctions corresponding to the energies closest to zero which are nevertheless Majoranas.
     Arguments needed specific to this case are as follows:
-
+    
         wfs: nx3 array
         Majorana wavefunctions
-
+        
 
     pair: list
         List containing strings of the sides to be coupled, e.g. `['left', 'right']`
-
+    
     indices: dict
         Values are the indices corresponding to the position at which the and wavefunction probability is evaluated.
-        Keys are the region names. Channel indices are represented as `left0`, `right0`, `top0`  whereas regions below the
+        Keys are the region names. Channel indices are represented as `left0`, `right0`, `top0`  whereas regions below the 
         gates  are represented as `left_1`, `right_1`, `top_1` (with an underscore). Please make sure that the points along
         the channel to be disconnected is not very close to the center of the trijunction so that it doesn't conflict with
         the points along the channels to be connected.
@@ -178,7 +181,7 @@ def wavefunction_loss(x, *argv):
     Other arguments needed commonly for the above two cases include:
 
     indices: dict
-
+         
 
     weights: tuple
     Weights for the elements in the cost function
@@ -189,9 +192,9 @@ def wavefunction_loss(x, *argv):
     """
     # unpack arguments
     if len(x.shape) == 1:
-
+        
         # print(x)
-
+        
         pair = argv[0]
         system, linear_terms, reference_wavefunctions = argv[1]
         indices = argv[2]
@@ -225,37 +228,38 @@ def wavefunction_loss(x, *argv):
 
     desired = np.vstack(desired)
 
-    desired = np.array([np.sum(desired[0::2], axis=0), np.sum(desired[1::2], axis=0)])
+    desired = np.array([np.sum(desired[0::2], axis=0), 
+                        np.sum(desired[1::2], axis=0)])
 
     sum_desired = np.sum(desired, axis=1)
 
     undesired = np.hstack(list(undesired.values()))
     uniformity = np.abs(np.diff(desired, axis=0))
 
+    
     wf_cost = (
-        -weights[0] * sum(sum_desired)
+        - weights[0] * sum(sum_desired)
         + weights[1] * np.sum(uniformity)
         + weights[2] * np.sum(undesired)
     )
-
+    
     return wf_cost
-
 
 def _amplitude(pair, index, wf):
     """
     Returns the amplitude of wavefunction at the positions along the channels and underneath the gates
-
+    
     Input
     -----
     pair: str
         Pair to be coupled. Either 'left-right' or 'right-top' or 'left-top'
-
+    
     indices: dict
         Indices of the Kwant system coordinates where the potential  is checked whether depleted or accumulated.
 
     wf: nx1 array
     Wavefunctions
-
+    
     Returns
     -------
     desired, undesired: two 1d array
